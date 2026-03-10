@@ -178,14 +178,23 @@ class SuperAdminController extends Controller
 
     public function organizations(Request $request): View
     {
-        $query = Organization::with('subscriptionPlan')->withCount(['events', 'users']);
-        if ($request->filled('status')) {
+        $query = Organization::with('subscriptionPlan');
+
+        if (Schema::hasTable('events')) {
+            $query->withCount('events');
+        }
+        if (Schema::hasTable('users')) {
+            $query->withCount('users');
+        }
+
+        if ($request->filled('status') && Schema::hasColumn('organizations', 'is_active')) {
             if ($request->status === 'active') {
                 $query->where('is_active', true);
             } elseif ($request->status === 'inactive') {
                 $query->where('is_active', false);
             }
         }
+
         $organizations = $query->orderByDesc('created_at')->paginate(20);
 
         return view('super-admin.organizations', [
