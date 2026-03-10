@@ -12,6 +12,7 @@
     @if(auth()->user()->isOrganizationAdmin())
     <form method="POST" action="{{ route('organization.profile.update') }}" enctype="multipart/form-data" class="p-6 space-y-6">
         @csrf
+        @method('PUT')
 
         {{-- Logo --}}
         <div>

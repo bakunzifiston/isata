@@ -10,9 +10,13 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(): \Illuminate\Http\RedirectResponse|View
     {
         $user = auth()->user();
+
+        if ($user->isSystemAdmin()) {
+            return redirect()->route('super-admin.dashboard');
+        }
         $organization = $user->organization;
         $isAdmin = $user->isAdmin();
 

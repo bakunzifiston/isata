@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,6 +33,12 @@ class LoginController extends Controller
         }
 
         $request->session()->regenerate();
+
+        ActivityLog::log('login', 'User logged in');
+
+        if (Auth::user()->isSystemAdmin()) {
+            return redirect()->intended(route('super-admin.dashboard'));
+        }
 
         return redirect()->intended(route('dashboard'));
     }

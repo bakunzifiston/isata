@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -39,7 +40,10 @@ class RegisterOrganizationController extends Controller
         }
 
         DB::transaction(function () use ($validated, $slug) {
-            $freemiumPlan = SubscriptionPlan::where('slug', 'freemium')->first();
+            $freemiumPlan = null;
+            if (Schema::hasTable('subscription_plans')) {
+                $freemiumPlan = SubscriptionPlan::where('slug', 'freemium')->first();
+            }
             $organization = Organization::create([
                 'name' => $validated['organization_name'],
                 'slug' => $slug,

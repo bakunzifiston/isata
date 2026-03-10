@@ -10,9 +10,9 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate(
-            ['email' => 'admin@isata.test'],
+            ['email' => 'owner@isata.test'],
             [
-                'name' => 'Admin',
+                'name' => 'ISATA Owner',
                 'password' => bcrypt('password'),
                 'organization_id' => null,
                 'role' => User::ROLE_ADMIN,

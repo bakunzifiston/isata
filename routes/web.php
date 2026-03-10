@@ -48,12 +48,22 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+
+    Route::middleware('system_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SuperAdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('organizations', [\App\Http\Controllers\SuperAdminController::class, 'organizations'])->name('organizations');
+        Route::post('organizations/{organization}/toggle', [\App\Http\Controllers\SuperAdminController::class, 'toggleOrganization'])->name('organizations.toggle');
+        Route::post('organizations/{organization}/assign-plan', [\App\Http\Controllers\SuperAdminController::class, 'assignPlan'])->name('organizations.assign-plan');
+        Route::get('events', [\App\Http\Controllers\SuperAdminController::class, 'events'])->name('events');
+        Route::get('activity', [\App\Http\Controllers\SuperAdminController::class, 'activity'])->name('activity');
+        Route::get('system-health', [\App\Http\Controllers\SuperAdminController::class, 'systemHealth'])->name('system-health');
+    });
     Route::get('notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/mark-read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
 
     Route::middleware('organization')->group(function () {
         Route::get('organization/profile', [OrganizationProfileController::class, 'edit'])->name('organization.profile.edit');
-        Route::put('organization/profile', [OrganizationProfileController::class, 'update'])->name('organization.profile.update');
+        Route::match(['put', 'post'], 'organization/profile', [OrganizationProfileController::class, 'update'])->name('organization.profile.update');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');

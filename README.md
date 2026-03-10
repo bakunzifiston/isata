@@ -79,7 +79,7 @@ A full SaaS web system for organizations to create events, manage attendees, and
    ```bash
    php artisan db:seed
    ```
-   Admin login: `admin@isata.test` / `password`
+   ISATA Owner (Super Admin) login: `owner@isata.test` / `password`
 
 5. **Install frontend dependencies & build:**
    ```bash
@@ -119,5 +119,5 @@ Keep the worker running in a separate terminal or use a process manager (Supervi
 
 ## Default Credentials
 
-- **Admin**: admin@isata.test / password
+- **ISATA Owner (Super Admin)**: owner@isata.test / password
 - **Organization**: Register at /register to create your organization

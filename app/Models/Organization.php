@@ -20,7 +20,15 @@ class Organization extends Model
         'phone',
         'address',
         'subscription_plan_id',
+        'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
 
     public function users(): HasMany
     {
