@@ -10,6 +10,7 @@ use App\Models\Event;
 use App\Models\Message;
 use App\Models\Organization;
 use App\Models\SubscriptionPlan;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -184,5 +185,38 @@ class SuperAdminController extends Controller
             'failedCount' => $failedCount,
             'failedJobs' => $failedJobs,
         ]);
+    }
+
+    public function users(): View
+    {
+        $users = User::with('organization')
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        return view('super-admin.users', [
+            'users' => $users,
+        ]);
+    }
+
+    public function destroyUser(User $user): RedirectResponse
+    {
+        if ($user->id === auth()->id()) {
+            return redirect()
+                ->route('super-admin.users')
+                ->with('error', 'You cannot delete your own super admin account.');
+        }
+
+        $name = $user->name;
+        $email = $user->email;
+
+        $user->delete();
+
+        ActivityLog::log('user_deleted', "User {$name} ({$email}) deleted by super admin.", [
+            'deleted_user_email' => $email,
+        ]);
+
+        return redirect()
+            ->route('super-admin.users')
+            ->with('status', 'User deleted successfully.');
     }
 }
