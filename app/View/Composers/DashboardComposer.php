@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Models\OrganizationUsage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class DashboardComposer
@@ -13,7 +14,7 @@ class DashboardComposer
         $notifications = [];
         $unreadNotificationsCount = 0;
 
-        if (auth()->check() && auth()->user()->organization) {
+        if (auth()->check() && auth()->user()->organization && Schema::hasTable('organization_usage')) {
             $org = auth()->user()->organization;
             $plan = $org->subscriptionPlan;
             $currentPeriod = now()->format('Y-m');
@@ -33,7 +34,7 @@ class DashboardComposer
         }
 
         $user = auth()->user();
-        if ($user) {
+        if ($user && Schema::hasTable('notifications')) {
             $dbNotifications = $user->unreadNotifications()->take(10)->get();
             $unreadNotificationsCount = $user->unreadNotifications()->count();
             $notifications = $dbNotifications->map(function ($n) {
