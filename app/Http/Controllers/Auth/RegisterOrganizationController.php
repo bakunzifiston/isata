@@ -44,11 +44,14 @@ class RegisterOrganizationController extends Controller
             if (Schema::hasTable('subscription_plans')) {
                 $freemiumPlan = SubscriptionPlan::where('slug', 'freemium')->first();
             }
-            $organization = Organization::create([
+            $orgData = [
                 'name' => $validated['organization_name'],
                 'slug' => $slug,
-                'subscription_plan_id' => $freemiumPlan?->id,
-            ]);
+            ];
+            if (Schema::hasColumn('organizations', 'subscription_plan_id')) {
+                $orgData['subscription_plan_id'] = $freemiumPlan?->id;
+            }
+            $organization = Organization::create($orgData);
 
             $user = User::create([
                 'name' => $validated['name'],
