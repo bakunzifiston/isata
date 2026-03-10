@@ -6,6 +6,7 @@ use App\Models\Attendee;
 use App\Models\CommunicationLog;
 use App\Models\Event;
 use App\Models\Message;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -27,11 +28,11 @@ class DashboardController extends Controller
         $chartData = ['labels' => [], 'values' => []];
         $recentActivity = [];
 
-        if ($organization) {
+        if ($organization && Schema::hasTable('events')) {
             $eventIds = $organization->events()->pluck('id');
             $eventCount = $organization->events()->whereIn('status', [Event::STATUS_SCHEDULED, Event::STATUS_COMPLETED])->count();
-            $attendeeCount = Attendee::whereIn('event_id', $eventIds)->count();
-            $messagesSent = Message::whereIn('event_id', $eventIds)->where('status', Message::STATUS_SENT)->count();
+            $attendeeCount = Schema::hasTable('attendees') ? Attendee::whereIn('event_id', $eventIds)->count() : 0;
+            $messagesSent = Schema::hasTable('messages') ? Message::whereIn('event_id', $eventIds)->where('status', Message::STATUS_SENT)->count() : 0;
 
             $upcomingEvents = $organization->events()
                 ->where('status', Event::STATUS_SCHEDULED)
@@ -41,13 +42,15 @@ class DashboardController extends Controller
                 ->take(5)
                 ->get();
 
-            $logs = CommunicationLog::where('organization_id', $organization->id)->whereNotNull('sent_at')->get();
-            $messagesByDay = $logs->groupBy(fn ($l) => $l->sent_at->format('Y-m-d'))->map->count();
-            $last7Days = collect(range(6, 0))->map(fn ($i) => now()->subDays($i)->format('Y-m-d'));
-            $chartData = [
-                'labels' => $last7Days->map(fn ($d) => \Carbon\Carbon::parse($d)->format('M j'))->values()->toArray(),
-                'values' => $last7Days->map(fn ($d) => $messagesByDay[$d] ?? 0)->values()->toArray(),
-            ];
+            if (Schema::hasTable('communication_logs')) {
+                $logs = CommunicationLog::where('organization_id', $organization->id)->whereNotNull('sent_at')->get();
+                $messagesByDay = $logs->groupBy(fn ($l) => $l->sent_at->format('Y-m-d'))->map->count();
+                $last7Days = collect(range(6, 0))->map(fn ($i) => now()->subDays($i)->format('Y-m-d'));
+                $chartData = [
+                    'labels' => $last7Days->map(fn ($d) => \Carbon\Carbon::parse($d)->format('M j'))->values()->toArray(),
+                    'values' => $last7Days->map(fn ($d) => $messagesByDay[$d] ?? 0)->values()->toArray(),
+                ];
+            }
         }
 
         return view('dashboard', [
