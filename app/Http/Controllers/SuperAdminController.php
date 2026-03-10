@@ -226,9 +226,14 @@ class SuperAdminController extends Controller
 
     public function events(): View
     {
-        $events = Event::with('organization')->withCount('attendees')
-            ->orderByDesc('date')
-            ->paginate(20);
+        if (Schema::hasTable('events')) {
+            $events = Event::with('organization')
+                ->withCount('attendees')
+                ->orderByDesc('date')
+                ->paginate(20);
+        } else {
+            $events = collect();
+        }
 
         return view('super-admin.events', ['events' => $events]);
     }
