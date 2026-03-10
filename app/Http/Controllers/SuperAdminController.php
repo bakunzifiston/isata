@@ -11,6 +11,7 @@ use App\Models\Message;
 use App\Models\Organization;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,9 @@ class SuperAdminController extends Controller
     public function dashboard(): View
     {
         $organizations = Organization::count();
-        $activeOrgs = Organization::where('is_active', true)->count();
+        $activeOrgs = Schema::hasColumn('organizations', 'is_active')
+            ? Organization::where('is_active', true)->count()
+            : 0;
         $totalEvents = Event::count();
         $totalAttendees = Attendee::count();
         $messagesSent = Message::where('status', Message::STATUS_SENT)->count();
