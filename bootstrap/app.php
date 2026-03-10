@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -22,5 +23,24 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/dashboard');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->renderable(function (Throwable $e, $request) {
+            // In debug mode, keep Laravel's default detailed error page.
+            if (config('app.debug')) {
+                return null;
+            }
+
+            $status = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Something went wrong',
+                    'message' => $e->getMessage(),
+                ], $status);
+            }
+
+            return response()->view('errors.generic', [
+                'message' => $e->getMessage(),
+                'status' => $status,
+            ], $status);
+        });
     })->create();
