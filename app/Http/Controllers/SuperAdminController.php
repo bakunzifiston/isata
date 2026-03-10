@@ -25,41 +25,76 @@ class SuperAdminController extends Controller
         $activeOrgs = Schema::hasColumn('organizations', 'is_active')
             ? Organization::where('is_active', true)->count()
             : 0;
-        $totalEvents = Event::count();
-        $totalAttendees = Attendee::count();
-        $messagesSent = Message::where('status', Message::STATUS_SENT)->count();
-        $commLogs = CommunicationLog::whereNotNull('sent_at')->count();
+        $totalEvents = Schema::hasTable('events') ? Event::count() : 0;
+        $totalAttendees = Schema::hasTable('attendees') ? Attendee::count() : 0;
+        $messagesSent = Schema::hasTable('messages')
+            ? Message::where('status', Message::STATUS_SENT)->count()
+            : 0;
+        $commLogs = Schema::hasTable('communication_logs')
+            ? CommunicationLog::whereNotNull('sent_at')->count()
+            : 0;
 
-        $plans = SubscriptionPlan::withCount('organizations')->get();
-        $mrr = $plans->sum(fn ($p) => ($p->organizations_count ?? 0) * (float) $p->price);
-        $activeSubscriptions = Organization::whereNotNull('subscription_plan_id')->count();
+        if (Schema::hasTable('subscription_plans')) {
+            $plans = SubscriptionPlan::withCount('organizations')->get();
+            $mrr = $plans->sum(fn ($p) => ($p->organizations_count ?? 0) * (float) $p->price);
+            $activeSubscriptions = Schema::hasColumn('organizations', 'subscription_plan_id')
+                ? Organization::whereNotNull('subscription_plan_id')->count()
+                : 0;
+        } else {
+            $plans = collect();
+            $mrr = 0;
+            $activeSubscriptions = 0;
+        }
 
         $lastMonth = now()->subMonth();
-        $eventsThisMonth = Event::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count();
-        $eventsLastMonth = Event::whereMonth('created_at', $lastMonth->month)->whereYear('created_at', $lastMonth->year)->count();
-        $eventsGrowth = $eventsLastMonth > 0 ? round((($eventsThisMonth - $eventsLastMonth) / $eventsLastMonth) * 100, 1) : 0;
+        if (Schema::hasTable('events')) {
+            $eventsThisMonth = Event::whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            $eventsLastMonth = Event::whereMonth('created_at', $lastMonth->month)
+                ->whereYear('created_at', $lastMonth->year)
+                ->count();
+            $eventsGrowth = $eventsLastMonth > 0
+                ? round((($eventsThisMonth - $eventsLastMonth) / $eventsLastMonth) * 100, 1)
+                : 0;
+        } else {
+            $eventsThisMonth = 0;
+            $eventsLastMonth = 0;
+            $eventsGrowth = 0;
+        }
 
         $orgsThisMonth = Organization::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count();
         $orgsLastMonth = Organization::whereMonth('created_at', $lastMonth->month)->whereYear('created_at', $lastMonth->year)->count();
         $orgsGrowth = $orgsLastMonth > 0 ? round((($orgsThisMonth - $orgsLastMonth) / $orgsLastMonth) * 100, 1) : 0;
 
-        $channels = Channel::all()->keyBy('id');
-        $emailChannel = Channel::where('slug', Channel::SLUG_EMAIL)->first();
-        $smsChannel = Channel::where('slug', Channel::SLUG_SMS)->first();
-        $beepChannel = Channel::where('slug', Channel::SLUG_BEEP_CALL)->first();
-        $socialChannel = Channel::where('slug', Channel::SLUG_SOCIAL_MEDIA)->first();
+        if (Schema::hasTable('channels') && Schema::hasTable('communication_logs')) {
+            $channels = Channel::all()->keyBy('id');
+            $emailChannel = Channel::where('slug', Channel::SLUG_EMAIL)->first();
+            $smsChannel = Channel::where('slug', Channel::SLUG_SMS)->first();
+            $beepChannel = Channel::where('slug', Channel::SLUG_BEEP_CALL)->first();
+            $socialChannel = Channel::where('slug', Channel::SLUG_SOCIAL_MEDIA)->first();
 
-        $emailVolume = $emailChannel ? CommunicationLog::where('channel_id', $emailChannel->id)->count() : 0;
-        $smsVolume = $smsChannel ? CommunicationLog::where('channel_id', $smsChannel->id)->count() : 0;
-        $beepVolume = $beepChannel ? CommunicationLog::where('channel_id', $beepChannel->id)->count() : 0;
-        $socialVolume = $socialChannel ? CommunicationLog::where('channel_id', $socialChannel->id)->count() : 0;
+            $emailVolume = $emailChannel ? CommunicationLog::where('channel_id', $emailChannel->id)->count() : 0;
+            $smsVolume = $smsChannel ? CommunicationLog::where('channel_id', $smsChannel->id)->count() : 0;
+            $beepVolume = $beepChannel ? CommunicationLog::where('channel_id', $beepChannel->id)->count() : 0;
+            $socialVolume = $socialChannel ? CommunicationLog::where('channel_id', $socialChannel->id)->count() : 0;
 
-        $delivered = CommunicationLog::whereIn('status', [CommunicationLog::STATUS_DELIVERED, CommunicationLog::STATUS_SENT])->count();
-        $totalComms = CommunicationLog::count();
-        $deliveryRate = $totalComms > 0 ? round(($delivered / $totalComms) * 100, 1) : 0;
+            $delivered = CommunicationLog::whereIn('status', [CommunicationLog::STATUS_DELIVERED, CommunicationLog::STATUS_SENT])->count();
+            $totalComms = CommunicationLog::count();
+            $deliveryRate = $totalComms > 0 ? round(($delivered / $totalComms) * 100, 1) : 0;
+        } else {
+            $channels = collect();
+            $emailVolume = 0;
+            $smsVolume = 0;
+            $beepVolume = 0;
+            $socialVolume = 0;
+            $deliveryRate = 0;
+        }
 
-        $jobsCount = config('queue.default') === 'database' ? DB::table('jobs')->count() : 0;
-        $failedCount = DB::table('failed_jobs')->count();
+        $jobsCount = config('queue.default') === 'database' && Schema::hasTable('jobs')
+            ? DB::table('jobs')->count()
+            : 0;
+        $failedCount = Schema::hasTable('failed_jobs') ? DB::table('failed_jobs')->count() : 0;
 
         $planDistribution = $plans->map(fn ($p) => [
             'name' => $p->name,
@@ -80,23 +115,29 @@ class SuperAdminController extends Controller
             return ['month' => $date->format('M Y'), 'revenue' => $revenue];
         });
 
-        $topEvents = Event::withCount('attendees')
-            ->with('organization')
-            ->orderByDesc('attendees_count')
-            ->take(10)
-            ->get()
-            ->map(function (Event $e) {
-                $responded = $e->rsvps()->distinct('attendee_id')->count('attendee_id');
-                $attended = $e->attendees()->where('rsvp_status', Attendee::RSVP_ATTENDED)->count();
-                return [
-                    'event' => $e,
-                    'attendees' => $e->attendees_count,
-                    'rsvp_rate' => $e->attendees_count > 0 ? round(($responded / $e->attendees_count) * 100, 1) : 0,
-                    'attendance_rate' => $responded > 0 ? round(($attended / $responded) * 100, 1) : 0,
-                ];
-            });
+        if (Schema::hasTable('events')) {
+            $topEvents = Event::withCount('attendees')
+                ->with('organization')
+                ->orderByDesc('attendees_count')
+                ->take(10)
+                ->get()
+                ->map(function (Event $e) {
+                    $responded = $e->rsvps()->distinct('attendee_id')->count('attendee_id');
+                    $attended = $e->attendees()->where('rsvp_status', Attendee::RSVP_ATTENDED)->count();
+                    return [
+                        'event' => $e,
+                        'attendees' => $e->attendees_count,
+                        'rsvp_rate' => $e->attendees_count > 0 ? round(($responded / $e->attendees_count) * 100, 1) : 0,
+                        'attendance_rate' => $responded > 0 ? round(($attended / $responded) * 100, 1) : 0,
+                    ];
+                });
+        } else {
+            $topEvents = collect();
+        }
 
-        $recentActivity = ActivityLog::with('user')->latest()->take(15)->get();
+        $recentActivity = Schema::hasTable('activity_logs')
+            ? ActivityLog::with('user')->latest()->take(15)->get()
+            : collect();
 
         $organizationsList = Organization::with('subscriptionPlan')->withCount(['events', 'users'])->orderByDesc('created_at')->paginate(10, ['*'], 'org_page');
 
