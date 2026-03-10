@@ -247,7 +247,17 @@ class SuperAdminController extends Controller
 
     public function activity(): View
     {
-        $logs = ActivityLog::with('user')->latest()->paginate(50);
+        if (Schema::hasTable('activity_logs')) {
+            $logs = ActivityLog::with('user')->latest()->paginate(50);
+        } else {
+            $logs = new \Illuminate\Pagination\LengthAwarePaginator(
+                collect(),
+                0,
+                50,
+                1,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+        }
 
         return view('super-admin.activity', ['logs' => $logs]);
     }
