@@ -139,7 +139,16 @@ class SuperAdminController extends Controller
             ? ActivityLog::with('user')->latest()->take(15)->get()
             : collect();
 
-        $organizationsList = Organization::with('subscriptionPlan')->withCount(['events', 'users'])->orderByDesc('created_at')->paginate(10, ['*'], 'org_page');
+        $orgQuery = Organization::with('subscriptionPlan');
+        if (Schema::hasTable('events')) {
+            $orgQuery->withCount('events');
+        }
+        if (Schema::hasTable('users')) {
+            $orgQuery->withCount('users');
+        }
+        $organizationsList = $orgQuery
+            ->orderByDesc('created_at')
+            ->paginate(10, ['*'], 'org_page');
 
         return view('super-admin.dashboard', [
             'organizations' => $organizations,
