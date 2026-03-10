@@ -14,6 +14,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -232,7 +233,13 @@ class SuperAdminController extends Controller
                 ->orderByDesc('date')
                 ->paginate(20);
         } else {
-            $events = collect();
+            $events = new LengthAwarePaginator(
+                collect(),
+                0,
+                20,
+                1,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
         }
 
         return view('super-admin.events', ['events' => $events]);
