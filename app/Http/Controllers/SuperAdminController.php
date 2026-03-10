@@ -197,9 +197,13 @@ class SuperAdminController extends Controller
 
         $organizations = $query->orderByDesc('created_at')->paginate(20);
 
+        $plans = Schema::hasTable('subscription_plans')
+            ? SubscriptionPlan::orderBy('price')->get()
+            : collect();
+
         return view('super-admin.organizations', [
             'organizations' => $organizations,
-            'plans' => SubscriptionPlan::orderBy('price')->get(),
+            'plans' => $plans,
         ]);
     }
 
