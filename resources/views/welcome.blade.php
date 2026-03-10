@@ -15,7 +15,7 @@
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16 lg:h-18">
                 <a href="{{ url('/') }}" class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-sm">{{ substr(config('app.name'), 0, 1) }}</div>
+                    <img src="{{ asset('images/isata-logo.svg') }}" alt="{{ config('app.name') }} logo" class="w-9 h-9">
                     <span class="text-lg font-semibold text-slate-900">{{ config('app.name') }}</span>
                 </a>
                 <nav class="flex items-center gap-6">
