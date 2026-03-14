@@ -6,16 +6,29 @@ use App\Models\Channel;
 use App\Models\MessageTemplate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class MessageTemplateController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $organization = auth()->user()->organization;
 
         if (! $organization) {
             abort(403);
+        }
+
+        if (! Schema::hasTable('message_templates')) {
+            $templates = new LengthAwarePaginator(
+                collect(),
+                0,
+                15,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+            return view('templates.index', ['templates' => $templates]);
         }
 
         $templates = $organization->messageTemplates()->with('channel')->orderBy('name')->paginate(15);

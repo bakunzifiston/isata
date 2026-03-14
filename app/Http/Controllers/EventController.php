@@ -80,6 +80,12 @@ class EventController extends Controller
 
         $validated['time'] = $validated['time'] ? $validated['time'] . ':00' : null;
 
+        if (! Schema::hasTable('events')) {
+            return redirect()->route('events.create')
+                ->with('error', 'Events cannot be created at the moment. Please try again later or contact support.')
+                ->withInput($request->except('_token'));
+        }
+
         $event = $organization->events()->create([
             ...$validated,
             'created_by' => auth()->id(),
