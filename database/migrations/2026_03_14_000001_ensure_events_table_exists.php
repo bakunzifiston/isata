@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Ensure the events table exists (e.g. when DB was partially migrated or table was dropped).
+     * Safe to run multiple times.
+     */
     public function up(): void
     {
         if (Schema::hasTable('events')) {
@@ -21,7 +25,7 @@ return new class extends Migration
             $table->time('time')->nullable();
             $table->string('venue')->nullable();
             $table->string('meeting_link')->nullable();
-            $table->string('status')->default('draft'); // draft, scheduled, cancelled, completed
+            $table->string('status')->default('draft');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
@@ -29,6 +33,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('events');
+        // Leave table in place; only this migration's up() is idempotent
     }
 };
