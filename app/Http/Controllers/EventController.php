@@ -9,6 +9,8 @@ use App\Models\OrganizationUsage;
 use App\Notifications\EventCreatedNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class EventController extends Controller
@@ -19,6 +21,17 @@ class EventController extends Controller
 
         if (! $organization) {
             abort(403, 'No organization associated with your account.');
+        }
+
+        if (! Schema::hasTable('events')) {
+            $events = new LengthAwarePaginator(
+                collect(),
+                0,
+                15,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+            return view('events.index', ['events' => $events]);
         }
 
         $query = $organization->events()->with('creator')->orderBy('date', 'desc')->orderBy('time', 'desc');

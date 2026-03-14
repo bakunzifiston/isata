@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\OrganizationUsage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class UsageController extends Controller
@@ -17,7 +18,16 @@ class UsageController extends Controller
 
         $plan = $organization->subscriptionPlan;
         $currentPeriod = now()->format('Y-m');
-        $usage = OrganizationUsage::getOrCreateForPeriod($organization->id, $currentPeriod);
+
+        if (! Schema::hasTable('organization_usage')) {
+            $usage = (object) [
+                'events_count' => 0,
+                'contacts_count' => 0,
+                'beep_calls_count' => 0,
+            ];
+        } else {
+            $usage = OrganizationUsage::getOrCreateForPeriod($organization->id, $currentPeriod);
+        }
 
         $eventsLimit = $plan?->getEventsLimitAttribute();
         $contactsLimit = $plan?->getContactsLimitAttribute();

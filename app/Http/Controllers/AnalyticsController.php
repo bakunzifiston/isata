@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\Message;
 use App\Models\Rsvp;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class AnalyticsController extends Controller
@@ -18,6 +19,31 @@ class AnalyticsController extends Controller
 
         if (! $organization) {
             abort(403);
+        }
+
+        if (! Schema::hasTable('events')) {
+            return view('analytics.index', [
+                'kpis' => [
+                    'messages_sent' => 0,
+                    'delivery_rate' => 0,
+                    'open_rate' => 0,
+                    'rsvp_rate' => 0,
+                    'attendance_rate' => 0,
+                    'social_engagement' => 0,
+                ],
+                'events' => collect(),
+                'selectedEvent' => null,
+                'chartData' => [
+                    'bar' => ['labels' => [], 'values' => [], 'colors' => []],
+                    'line' => ['labels' => [], 'values' => []],
+                    'pie' => [
+                        'labels' => ['Delivered', 'Opened', 'RSVP\'d', 'Attended'],
+                        'values' => [0, 0, 0, 0],
+                        'colors' => ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'],
+                    ],
+                ],
+                'eventPerformance' => collect(),
+            ]);
         }
 
         $eventId = $request->input('event_id');

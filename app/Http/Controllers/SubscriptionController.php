@@ -3,12 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\SubscriptionPlan;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class SubscriptionController extends Controller
 {
     public function plans(): View
     {
+        if (! Schema::hasTable('subscription_plans')) {
+            return view('subscription.plans', [
+                'plans' => collect(),
+                'currentPlan' => null,
+            ]);
+        }
+
         $plans = SubscriptionPlan::orderBy('price')->get();
         $currentPlan = auth()->user()->organization?->subscriptionPlan;
 
@@ -24,6 +32,15 @@ class SubscriptionController extends Controller
 
         if (! $organization) {
             abort(403, 'No organization associated with your account.');
+        }
+
+        if (! Schema::hasTable('subscription_plans')) {
+            return view('subscription.upgrade', [
+                'plans' => collect(),
+                'currentPlan' => null,
+                'organization' => $organization,
+                'preselectedSlug' => $request->query('plan'),
+            ]);
         }
 
         $plans = SubscriptionPlan::where('price', '>', 0)->orderBy('price')->get();
@@ -44,6 +61,11 @@ class SubscriptionController extends Controller
 
         if (! $organization || ! auth()->user()->isOrganizationAdmin()) {
             abort(403, 'Unauthorized.');
+        }
+
+        if (! Schema::hasTable('subscription_plans')) {
+            return redirect()->route('subscription.plans')
+                ->with('error', 'Subscription plans are not available yet.');
         }
 
         $plan = SubscriptionPlan::findOrFail($request->input('plan_id'));
