@@ -202,14 +202,21 @@ class SuperAdminController extends Controller
             ? SubscriptionPlan::orderBy('price')->get()
             : collect();
 
+        $hasIsActive = Schema::hasColumn('organizations', 'is_active');
+
         return view('super-admin.organizations', [
             'organizations' => $organizations,
             'plans' => $plans,
+            'hasIsActive' => $hasIsActive,
         ]);
     }
 
     public function toggleOrganization(Organization $organization): RedirectResponse
     {
+        if (! Schema::hasColumn('organizations', 'is_active')) {
+            return redirect()->route('super-admin.organizations')->with('error', 'Activate/deactivate is not available. Run migrations to add the is_active column.');
+        }
+
         $organization->update(['is_active' => ! $organization->is_active]);
         ActivityLog::log('organization_toggle', "Organization {$organization->name} " . ($organization->is_active ? 'activated' : 'deactivated'), ['organization_id' => $organization->id]);
 

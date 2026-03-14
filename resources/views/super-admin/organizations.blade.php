@@ -10,6 +10,7 @@
     </div>
 </div>
 
+@if($hasIsActive ?? false)
 <form method="GET" class="mb-6 flex gap-4">
     <select name="status" onchange="this.form.submit()" class="px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500">
         <option value="">All</option>
@@ -17,6 +18,7 @@
         <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive only</option>
     </select>
 </form>
+@endif
 
 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
@@ -28,8 +30,10 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Plan</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Events</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Users</th>
+                    @if($hasIsActive ?? false)
                     <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
+                    @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-200">
@@ -50,8 +54,9 @@
                             </select>
                         </form>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-600">{{ $org->events_count }}</td>
-                    <td class="px-6 py-4 text-sm text-slate-600">{{ $org->users_count }}</td>
+                    <td class="px-6 py-4 text-sm text-slate-600">{{ $org->events_count ?? 0 }}</td>
+                    <td class="px-6 py-4 text-sm text-slate-600">{{ $org->users_count ?? 0 }}</td>
+                    @if($hasIsActive ?? false)
                     <td class="px-6 py-4">
                         <span class="px-2 py-0.5 rounded text-xs font-medium {{ $org->is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
                             {{ $org->is_active ? 'Active' : 'Inactive' }}
@@ -65,9 +70,10 @@
                             </button>
                         </form>
                     </td>
+                    @endif
                 </tr>
                 @empty
-                <tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">No organizations</td></tr>
+                <tr><td colspan="{{ ($hasIsActive ?? false) ? 7 : 5 }}" class="px-6 py-12 text-center text-slate-500">No organizations</td></tr>
                 @endforelse
             </tbody>
         </table>
