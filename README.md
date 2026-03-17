@@ -93,6 +93,33 @@ A full SaaS web system for organizations to create events, manage attendees, and
    ```
    Visit http://127.0.0.1:8000
 
+## Docker Setup (MySQL inside Docker)
+
+You can also run ISATA fully inside Docker using the provided `docker-compose.yml`.
+
+1. **Copy Docker env and generate key:**
+   ```bash
+   cp .env.docker.example .env
+   php artisan key:generate
+   ```
+
+2. **Build and start containers:**
+   ```bash
+   docker-compose build
+   docker-compose up -d
+   ```
+
+3. **Run migrations and seed inside the app container:**
+   ```bash
+   docker-compose exec app php artisan migrate --force
+   docker-compose exec app php artisan db:seed --force
+   ```
+
+4. Open the app at:
+   ```text
+   http://localhost:8000
+   ```
+
 ## Cron & Queue
 
 For scheduled tasks (messages, reminders, sync) and background jobs:
