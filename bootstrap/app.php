@@ -30,6 +30,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $status = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
 
+            // For 404s, use the dedicated 404 view so we can show a custom message.
+            if ($status === 404) {
+                return response()->view('errors.404', [
+                    'exception' => $e,
+                    'status' => $status,
+                ], 404);
+            }
+
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Something went wrong',
