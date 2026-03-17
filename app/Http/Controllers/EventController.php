@@ -113,7 +113,7 @@ class EventController extends Controller
         $organization = auth()->user()->organization;
 
         if (! $organization || $event->organization_id !== $organization->id) {
-            abort(404);
+            abort(404, 'Event not found or you do not have access to it.');
         }
 
         $event->load('creator');
@@ -128,7 +128,7 @@ class EventController extends Controller
         $organization = auth()->user()->organization;
 
         if (! $organization || $event->organization_id !== $organization->id) {
-            abort(404);
+            abort(404, 'Event not found or you do not have access to it.');
         }
 
         $event->load('reminderSettings');
