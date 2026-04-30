@@ -105,7 +105,9 @@ class EventController extends Controller
             ? 'Event saved as draft.'
             : 'Event created successfully.';
 
-        return redirect()->route('events.show', $event)->with('status', $message);
+        // Redirect to index instead of show to avoid accidental 404 from stale/wrong event links
+        // in environments with inconsistent data or tenant-scoped access mismatches.
+        return redirect()->route('events.index')->with('status', $message);
     }
 
     public function show(Event $event): View
