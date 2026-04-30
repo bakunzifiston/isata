@@ -110,15 +110,13 @@ class EventController extends Controller
         return redirect()->route('events.index')->with('status', $message);
     }
 
-    public function show(Event $event): View
+    public function show(Event $event): View|RedirectResponse
     {
         $organization = auth()->user()->organization;
 
         if (! $organization || $event->organization_id !== $organization->id) {
-            redirect()->route('events.index')
-                ->with('error', 'That event is not available in your organization.')
-                ->send();
-            exit;
+            return redirect()->route('events.index')
+                ->with('error', 'That event is not available in your organization.');
         }
 
         $event->load('creator');
@@ -128,15 +126,13 @@ class EventController extends Controller
         ]);
     }
 
-    public function edit(Event $event): View
+    public function edit(Event $event): View|RedirectResponse
     {
         $organization = auth()->user()->organization;
 
         if (! $organization || $event->organization_id !== $organization->id) {
-            redirect()->route('events.index')
-                ->with('error', 'That event is not available in your organization.')
-                ->send();
-            exit;
+            return redirect()->route('events.index')
+                ->with('error', 'That event is not available in your organization.');
         }
 
         $event->load('reminderSettings');
