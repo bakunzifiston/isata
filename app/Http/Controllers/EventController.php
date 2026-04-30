@@ -115,7 +115,10 @@ class EventController extends Controller
         $organization = auth()->user()->organization;
 
         if (! $organization || $event->organization_id !== $organization->id) {
-            abort(404, 'Event not found or you do not have access to it.');
+            redirect()->route('events.index')
+                ->with('error', 'That event is not available in your organization.')
+                ->send();
+            exit;
         }
 
         $event->load('creator');
@@ -130,7 +133,10 @@ class EventController extends Controller
         $organization = auth()->user()->organization;
 
         if (! $organization || $event->organization_id !== $organization->id) {
-            abort(404, 'Event not found or you do not have access to it.');
+            redirect()->route('events.index')
+                ->with('error', 'That event is not available in your organization.')
+                ->send();
+            exit;
         }
 
         $event->load('reminderSettings');
