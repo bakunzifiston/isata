@@ -8,9 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Event extends Model
 {
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_SCHEDULED = 'scheduled';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUS_COMPLETED = 'completed';
+
+    public const FORMAT_PHYSICAL = 'physical';
+
+    public const FORMAT_ONLINE = 'online';
 
     protected $fillable = [
         'organization_id',
@@ -18,6 +25,7 @@ class Event extends Model
         'description',
         'date',
         'time',
+        'event_format',
         'venue',
         'meeting_link',
         'status',
@@ -92,11 +100,26 @@ class Event extends Model
             return null;
         }
         $time = $this->time ? substr($this->time, 0, 5) : '00:00';
-        return \Carbon\Carbon::parse($this->date->format('Y-m-d') . ' ' . $time);
+
+        return \Carbon\Carbon::parse($this->date->format('Y-m-d').' '.$time);
     }
 
     public function getTimeFormattedAttribute(): ?string
     {
         return $this->time ? substr($this->time, 0, 5) : null;
+    }
+
+    /** physical | online, with legacy rows inferred from venue / link. */
+    public function effectiveFormat(): string
+    {
+        if ($this->event_format) {
+            return $this->event_format;
+        }
+
+        if (filled($this->meeting_link) && blank($this->venue)) {
+            return self::FORMAT_ONLINE;
+        }
+
+        return self::FORMAT_PHYSICAL;
     }
 }

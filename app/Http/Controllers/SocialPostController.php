@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSocialPostRequest;
+use App\Http\Requests\UpdateSocialPostRequest;
 use App\Jobs\PublishSocialPostJob;
+use App\Models\Channel;
 use App\Models\Event;
-use App\Models\SocialAccount;
-use App\Models\SocialPost;
+use App\Models\Message;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -15,13 +17,14 @@ class SocialPostController extends Controller
 {
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Message::class);
+
         $organization = auth()->user()->organization;
+        $channelId = $this->socialChannelId();
 
-        if (! $organization) {
-            abort(403);
-        }
-
-        $posts = SocialPost::where('organization_id', $organization->id)
+        $posts = Message::query()
+            ->where('organization_id', $organization->id)
+            ->where('channel_id', $channelId)
             ->with(['event', 'socialAccount'])
             ->orderByDesc('created_at')
             ->paginate(15);
@@ -33,11 +36,9 @@ class SocialPostController extends Controller
 
     public function create(Request $request): View
     {
-        $organization = auth()->user()->organization;
+        $this->authorize('create', Message::class);
 
-        if (! $organization) {
-            abort(403);
-        }
+        $organization = auth()->user()->organization;
 
         $events = $organization->events()
             ->whereIn('status', [Event::STATUS_SCHEDULED, Event::STATUS_COMPLETED])
@@ -50,27 +51,27 @@ class SocialPostController extends Controller
             'events' => $events,
             'accounts' => $accounts,
             'preselectedEventId' => $request->input('event_id'),
+            'post' => new Message([
+                'event_id' => $request->input('event_id'),
+                'social_platform' => 'facebook',
+                'content_type' => Message::CONTENT_TYPE_TEXT,
+            ]),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreSocialPostRequest $request): RedirectResponse
     {
         $organization = auth()->user()->organization;
+        $validated = $request->validated();
 
-        if (! $organization) {
-            abort(403);
+        if (! empty($validated['event_id'])) {
+            $linkedEvent = Event::find($validated['event_id']);
+            if (! $linkedEvent || $linkedEvent->organization_id !== $organization->id) {
+                abort(404);
+            }
+        } elseif (empty($validated['event_id'])) {
+            return redirect()->back()->withErrors(['event_id' => 'Select an event for this social post.'])->withInput();
         }
-
-        $validated = $request->validate([
-            'platform' => ['required', 'in:facebook,linkedin,twitter,whatsapp'],
-            'content' => ['required', 'string', 'max:10000'],
-            'event_id' => ['nullable', 'exists:events,id'],
-            'social_account_id' => ['nullable', 'exists:social_accounts,id'],
-            'scheduled_at' => ['nullable', 'date'],
-            'status' => ['required', 'in:draft,scheduled'],
-            'media' => ['nullable', 'array'],
-            'media.*' => ['file', 'image', 'max:10240'],
-        ]);
 
         $mediaPaths = [];
         if ($request->hasFile('media')) {
@@ -81,11 +82,14 @@ class SocialPostController extends Controller
 
         $content = $this->renderContent($validated['content'], $validated['event_id'] ?? null);
 
-        $post = $organization->socialPosts()->create([
-            'event_id' => $validated['event_id'] ?? null,
+        Message::create([
+            'organization_id' => $organization->id,
+            'event_id' => $validated['event_id'],
+            'channel_id' => $this->socialChannelId(),
             'social_account_id' => $validated['social_account_id'] ?? null,
-            'platform' => $validated['platform'],
+            'social_platform' => $validated['platform'],
             'content' => $content,
+            'content_type' => Message::CONTENT_TYPE_TEXT,
             'media_paths' => $mediaPaths ?: null,
             'scheduled_at' => $validated['scheduled_at'] ?? null,
             'status' => $validated['status'],
@@ -94,13 +98,12 @@ class SocialPostController extends Controller
         return redirect()->route('social.index')->with('status', 'Post created.');
     }
 
-    public function edit(SocialPost $post): View
+    public function edit(int $post): View
     {
-        $organization = auth()->user()->organization;
+        $message = $this->resolveSocialMessage($post);
+        $this->authorize('update', $message);
 
-        if (! $organization || $post->organization_id !== $organization->id) {
-            abort(404);
-        }
+        $organization = auth()->user()->organization;
 
         $events = $organization->events()
             ->whereIn('status', [Event::STATUS_SCHEDULED, Event::STATUS_COMPLETED])
@@ -110,32 +113,27 @@ class SocialPostController extends Controller
         $accounts = $organization->socialAccounts()->where('is_active', true)->get();
 
         return view('social.edit', [
-            'post' => $post,
+            'post' => $message,
             'events' => $events,
             'accounts' => $accounts,
         ]);
     }
 
-    public function update(Request $request, SocialPost $post): RedirectResponse
+    public function update(UpdateSocialPostRequest $request, int $post): RedirectResponse
     {
-        $organization = auth()->user()->organization;
+        $message = $this->resolveSocialMessage($post);
 
-        if (! $organization || $post->organization_id !== $organization->id) {
-            abort(403);
+        $organization = auth()->user()->organization;
+        $validated = $request->validated();
+
+        if (! empty($validated['event_id'])) {
+            $linkedEvent = Event::find($validated['event_id']);
+            if (! $linkedEvent || $linkedEvent->organization_id !== $organization->id) {
+                abort(404);
+            }
         }
 
-        $validated = $request->validate([
-            'platform' => ['required', 'in:facebook,linkedin,twitter,whatsapp'],
-            'content' => ['required', 'string', 'max:10000'],
-            'event_id' => ['nullable', 'exists:events,id'],
-            'social_account_id' => ['nullable', 'exists:social_accounts,id'],
-            'scheduled_at' => ['nullable', 'date'],
-            'status' => ['required', 'in:draft,scheduled,published,failed'],
-            'media' => ['nullable', 'array'],
-            'media.*' => ['file', 'image', 'max:10240'],
-        ]);
-
-        $mediaPaths = $post->media_paths ?? [];
+        $mediaPaths = $message->media_paths ?? [];
         if ($request->hasFile('media')) {
             foreach ($request->file('media') as $file) {
                 $mediaPaths[] = $file->store('social/media', 'public');
@@ -144,36 +142,50 @@ class SocialPostController extends Controller
 
         $content = $this->renderContent($validated['content'], $validated['event_id'] ?? null);
 
-        $post->update([
+        $status = $validated['status'] === 'published' ? Message::STATUS_SENT : $validated['status'];
+
+        $message->update([
             'event_id' => $validated['event_id'] ?? null,
             'social_account_id' => $validated['social_account_id'] ?? null,
-            'platform' => $validated['platform'],
+            'social_platform' => $validated['platform'],
             'content' => $content,
             'media_paths' => $mediaPaths ?: null,
             'scheduled_at' => $validated['scheduled_at'] ?? null,
-            'status' => $validated['status'],
+            'status' => $status,
         ]);
 
         return redirect()->route('social.index')->with('status', 'Post updated.');
     }
 
-    public function destroy(SocialPost $post): RedirectResponse
+    public function destroy(int $post): RedirectResponse
     {
-        $organization = auth()->user()->organization;
+        $message = $this->resolveSocialMessage($post);
+        $this->authorize('delete', $message);
 
-        if (! $organization || $post->organization_id !== $organization->id) {
-            abort(403);
-        }
-
-        if ($post->media_paths) {
-            foreach ($post->media_paths as $path) {
+        if ($message->media_paths) {
+            foreach ($message->media_paths as $path) {
                 Storage::disk('public')->delete($path);
             }
         }
 
-        $post->delete();
+        $message->delete();
 
         return redirect()->route('social.index')->with('status', 'Post deleted.');
+    }
+
+    public function publishNow(int $post): RedirectResponse
+    {
+        $message = $this->resolveSocialMessage($post);
+        $this->authorize('sendNow', $message);
+
+        if ($message->status === Message::STATUS_SENT) {
+            return redirect()->route('social.index')->with('error', 'Post already published.');
+        }
+
+        $message->update(['status' => Message::STATUS_SCHEDULED, 'scheduled_at' => now()]);
+        PublishSocialPostJob::dispatch($message);
+
+        return redirect()->route('social.index')->with('status', 'Post published.');
     }
 
     protected function renderContent(string $content, ?int $eventId): string
@@ -185,27 +197,26 @@ class SocialPostController extends Controller
             $content = str_replace('{event_link}', $rsvpUrl, $content);
             if ($event) {
                 $content = str_replace('{event_name}', $event->name, $content);
-                $content = str_replace('{event_time}', $event->date?->format('M j, Y') . ($event->time_formatted ? ' at ' . $event->time_formatted : ''), $content);
+                $content = str_replace('{event_time}', $event->date?->format('M j, Y').($event->time_formatted ? ' at '.$event->time_formatted : ''), $content);
             }
         }
+
         return $content;
     }
 
-    public function publishNow(SocialPost $post): RedirectResponse
+    private function socialChannelId(): int
+    {
+        return (int) Channel::where('slug', Channel::SLUG_SOCIAL_MEDIA)->value('id');
+    }
+
+    private function resolveSocialMessage(int $id): Message
     {
         $organization = auth()->user()->organization;
 
-        if (! $organization || $post->organization_id !== $organization->id) {
-            abort(403);
-        }
-
-        if ($post->status === SocialPost::STATUS_PUBLISHED) {
-            return redirect()->route('social.index')->with('error', 'Post already published.');
-        }
-
-        $post->update(['status' => SocialPost::STATUS_SCHEDULED, 'scheduled_at' => now()]);
-        PublishSocialPostJob::dispatch($post);
-
-        return redirect()->route('social.index')->with('status', 'Post published.');
+        return Message::query()
+            ->where('id', $id)
+            ->where('organization_id', $organization->id)
+            ->where('channel_id', $this->socialChannelId())
+            ->firstOrFail();
     }
 }

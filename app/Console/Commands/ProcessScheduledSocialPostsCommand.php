@@ -3,7 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Jobs\PublishSocialPostJob;
-use App\Models\SocialPost;
+use App\Models\Channel;
+use App\Models\Message;
 use Illuminate\Console\Command;
 
 class ProcessScheduledSocialPostsCommand extends Command
@@ -14,15 +15,22 @@ class ProcessScheduledSocialPostsCommand extends Command
 
     public function handle(): int
     {
-        $due = SocialPost::query()
-            ->where('status', SocialPost::STATUS_SCHEDULED)
+        $channelId = Channel::where('slug', Channel::SLUG_SOCIAL_MEDIA)->value('id');
+
+        if (! $channelId) {
+            return self::SUCCESS;
+        }
+
+        $due = Message::query()
+            ->where('channel_id', $channelId)
+            ->where('status', Message::STATUS_SCHEDULED)
             ->whereNotNull('scheduled_at')
             ->where('scheduled_at', '<=', now())
             ->get();
 
-        foreach ($due as $post) {
-            PublishSocialPostJob::dispatch($post);
-            $this->info("Dispatched post {$post->id} for {$post->platform}");
+        foreach ($due as $message) {
+            PublishSocialPostJob::dispatch($message);
+            $this->info("Dispatched social message {$message->id} for {$message->social_platform}");
         }
 
         return self::SUCCESS;

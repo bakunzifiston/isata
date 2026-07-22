@@ -4,8 +4,8 @@
 
 @section('content')
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-slate-900">Create survey</h1>
-    <p class="mt-1 text-slate-600">Build a feedback survey for your event</p>
+    <h1 class="admin-page-title">Create survey</h1>
+    <p class="admin-page-subtitle">Build a feedback survey for your event</p>
 </div>
 
 <div class="max-w-2xl">

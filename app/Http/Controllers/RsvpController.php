@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Attendee;
 use App\Models\Event;
 use App\Models\Rsvp;
+use App\Support\SignedUrlTtl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -59,23 +60,27 @@ class RsvpController extends Controller
         return view('rsvp.event-landing', ['event' => $event]);
     }
 
-    public function lookup(Request $request): \Illuminate\Http\RedirectResponse|View
+    public function lookup(Request $request): RedirectResponse|View
     {
-        $eventId = $request->input('event');
-        $email = $request->input('email');
+        $validated = $request->validate([
+            'event' => ['required', 'integer', 'exists:events,id'],
+            'email' => ['required', 'string', 'email', 'max:255'],
+        ]);
 
-        if (! $eventId || ! $email) {
-            return redirect()->back()->with('error', 'Email required.');
-        }
+        $eventId = $validated['event'];
+        $email = strtolower(trim($validated['email']));
 
-        $attendee = Attendee::where('event_id', $eventId)->where('email', $email)->first();
+        $attendee = Attendee::query()
+            ->where('event_id', $eventId)
+            ->whereHas('contact', fn ($q) => $q->where('email', $email))
+            ->first();
 
         if ($attendee) {
             return redirect()->away(
                 \Illuminate\Support\Facades\URL::signedRoute('rsvp.show', [
                     'event' => $attendee->event,
                     'attendee' => $attendee,
-                ], now()->addDays(30))
+                ], SignedUrlTtl::rsvpExpiresAt())
             );
         }
 
@@ -102,8 +107,9 @@ class RsvpController extends Controller
 
         $digits = preg_replace('/\D/', '', $from);
         $attendee = Attendee::query()
-            ->where(function ($q) use ($digits, $from) {
-                $q->where('phone', 'like', '%' . substr($digits, -10) . '%')
+            ->with('contact')
+            ->whereHas('contact', function ($q) use ($digits, $from) {
+                $q->where('phone', 'like', '%'.substr($digits, -10).'%')
                     ->orWhere('email', $from);
             })
             ->orderByDesc('created_at')

@@ -8,15 +8,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SocialEngagement extends Model
 {
     public const TYPE_LIKE = 'like';
+
     public const TYPE_SHARE = 'share';
+
     public const TYPE_COMMENT = 'comment';
+
     public const TYPE_REPLY = 'reply';
+
     public const TYPE_VIEW = 'view';
 
     protected $table = 'social_engagement';
 
     protected $fillable = [
-        'social_post_id',
+        'message_id',
         'platform',
         'engagement_type',
         'count',
@@ -31,8 +35,8 @@ class SocialEngagement extends Model
         ];
     }
 
-    public function socialPost(): BelongsTo
+    public function message(): BelongsTo
     {
-        return $this->belongsTo(SocialPost::class);
+        return $this->belongsTo(Message::class);
     }
 }

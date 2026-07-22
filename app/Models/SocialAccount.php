@@ -34,9 +34,9 @@ class SocialAccount extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    public function posts(): HasMany
+    public function socialMessages(): HasMany
     {
-        return $this->hasMany(SocialPost::class);
+        return $this->hasMany(Message::class, 'social_account_id');
     }
 
     public static function platforms(): array

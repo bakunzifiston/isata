@@ -16,6 +16,7 @@ class EnsureEventsTableCommand extends Command
     {
         if (Schema::hasTable('events')) {
             $this->info('The events table already exists.');
+
             return self::SUCCESS;
         }
 
@@ -28,6 +29,7 @@ class EnsureEventsTableCommand extends Command
             $table->text('description')->nullable();
             $table->date('date');
             $table->time('time')->nullable();
+            $table->string('event_format', 20)->nullable();
             $table->string('venue')->nullable();
             $table->string('meeting_link')->nullable();
             $table->string('status')->default('draft');

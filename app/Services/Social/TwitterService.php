@@ -2,13 +2,13 @@
 
 namespace App\Services\Social;
 
-use App\Models\SocialPost;
+use App\Models\Message;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class TwitterService
 {
-    public function publish(SocialPost $post): bool
+    public function publish(Message $post): bool
     {
         $account = $post->socialAccount;
         if (! $account || $account->platform !== 'twitter') {
@@ -25,7 +25,7 @@ class TwitterService
         $accessToken = $credentials['access_token'] ?? config('services.twitter.access_token');
 
         if (! $accessToken) {
-            $post->update(['status' => SocialPost::STATUS_FAILED, 'error_message' => 'No access token']);
+            $post->update(['status' => Message::STATUS_FAILED, 'error_message' => 'No access token']);
             return false;
         }
 
@@ -43,7 +43,7 @@ class TwitterService
         }
 
         $post->update([
-            'status' => SocialPost::STATUS_FAILED,
+            'status' => Message::STATUS_FAILED,
             'error_message' => $response->json('detail', $response->body()),
         ]);
         return false;
@@ -54,7 +54,7 @@ class TwitterService
         return strlen($text) > $max ? substr($text, 0, $max - 3) . '...' : $text;
     }
 
-    public function fetchEngagement(SocialPost $post): void
+    public function fetchEngagement(Message $post): void
     {
         if (! $post->external_post_id || ! config('services.twitter.api_key')) {
             return;
