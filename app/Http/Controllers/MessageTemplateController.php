@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreMessageTemplateRequest;
+use App\Http\Requests\UpdateMessageTemplateRequest;
 use App\Models\Channel;
 use App\Models\MessageTemplate;
 use Illuminate\Http\RedirectResponse;
@@ -14,11 +16,9 @@ class MessageTemplateController extends Controller
 {
     public function index(Request $request): View
     {
-        $organization = auth()->user()->organization;
+        $this->authorize('viewAny', MessageTemplate::class);
 
-        if (! $organization) {
-            abort(403);
-        }
+        $organization = auth()->user()->organization;
 
         if (! Schema::hasTable('message_templates')) {
             $templates = new LengthAwarePaginator(
@@ -28,6 +28,7 @@ class MessageTemplateController extends Controller
                 1,
                 ['path' => $request->url(), 'query' => $request->query()]
             );
+
             return view('templates.index', ['templates' => $templates]);
         }
 
@@ -40,41 +41,20 @@ class MessageTemplateController extends Controller
 
     public function create(): View
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403);
-        }
+        $this->authorize('create', MessageTemplate::class);
 
         $channels = Channel::orderBy('name')->get();
 
         return view('templates.create', [
-            'template' => new MessageTemplate(),
+            'template' => new MessageTemplate,
             'channels' => $channels,
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreMessageTemplateRequest $request): RedirectResponse
     {
         $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403);
-        }
-
-        $channel = Channel::findOrFail($request->channel_id);
-
-        $rules = [
-            'name' => ['required', 'string', 'max:255'],
-            'channel_id' => ['required', 'exists:channels,id'],
-            'content' => ['required', 'string', 'max:10000'],
-        ];
-
-        if ($channel->supports_subject) {
-            $rules['subject'] = ['nullable', 'string', 'max:255'];
-        }
-
-        $validated = $request->validate($rules);
+        $validated = $request->validated();
 
         $organization->messageTemplates()->create([
             'channel_id' => $validated['channel_id'],
@@ -89,11 +69,7 @@ class MessageTemplateController extends Controller
 
     public function edit(MessageTemplate $template): View
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $template->organization_id !== $organization->id) {
-            abort(404);
-        }
+        $this->authorize('update', $template);
 
         $channels = Channel::orderBy('name')->get();
 
@@ -103,27 +79,9 @@ class MessageTemplateController extends Controller
         ]);
     }
 
-    public function update(Request $request, MessageTemplate $template): RedirectResponse
+    public function update(UpdateMessageTemplateRequest $request, MessageTemplate $template): RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $template->organization_id !== $organization->id) {
-            abort(403);
-        }
-
-        $channel = Channel::findOrFail($request->channel_id);
-
-        $rules = [
-            'name' => ['required', 'string', 'max:255'],
-            'channel_id' => ['required', 'exists:channels,id'],
-            'content' => ['required', 'string', 'max:10000'],
-        ];
-
-        if ($channel->supports_subject) {
-            $rules['subject'] = ['nullable', 'string', 'max:255'];
-        }
-
-        $validated = $request->validate($rules);
+        $validated = $request->validated();
 
         $template->update([
             'channel_id' => $validated['channel_id'],
@@ -138,11 +96,7 @@ class MessageTemplateController extends Controller
 
     public function destroy(MessageTemplate $template): RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $template->organization_id !== $organization->id) {
-            abort(403);
-        }
+        $this->authorize('delete', $template);
 
         $template->delete();
 

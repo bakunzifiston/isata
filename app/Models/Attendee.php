@@ -8,22 +8,51 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Attendee extends Model
 {
     public const RSVP_PENDING = 'pending';
+
     public const RSVP_CONFIRMED = 'confirmed';
+
     public const RSVP_DECLINED = 'declined';
+
     public const RSVP_ATTENDED = 'attended';
 
     protected $fillable = [
         'event_id',
-        'name',
-        'email',
-        'phone',
-        'organization',
+        'contact_id',
         'rsvp_status',
+    ];
+
+    protected $with = [
+        'contact',
     ];
 
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
+    }
+
+    public function getNameAttribute(): ?string
+    {
+        return $this->contact?->name;
+    }
+
+    public function getEmailAttribute(): ?string
+    {
+        return $this->contact?->email;
+    }
+
+    public function getPhoneAttribute(): ?string
+    {
+        return $this->contact?->phone;
+    }
+
+    public function getOrganizationAttribute(): ?string
+    {
+        return $this->contact?->company;
     }
 
     public function rsvps(): \Illuminate\Database\Eloquent\Relations\HasMany

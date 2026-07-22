@@ -1,89 +1,73 @@
-@extends('layouts.app')
+@extends('layouts.auth')
 
-@section('title', 'Login - ' . config('app.name'))
+@section('title', 'Log in — ' . config('app.name'))
 
 @section('content')
-<div class="min-h-screen flex flex-col items-center justify-center px-4 py-12">
-    <div class="w-full max-w-md">
-        {{-- Logo / Brand --}}
-        <div class="text-center mb-10">
-            <a href="{{ route('home') }}" class="inline-block">
-                <span class="text-3xl font-bold tracking-tight text-slate-900">ISATA</span>
-            </a>
-            <p class="mt-2 text-slate-600">Event management for organizations</p>
+<div class="rounded-[22px] border border-ink/8 bg-white p-8 shadow-sm">
+    <p class="font-mono text-xs uppercase tracking-widest text-ink/45">Account</p>
+    <h1 class="mt-2 font-display text-2xl font-semibold tracking-tight">Welcome back</h1>
+    <p class="mt-1 text-sm text-ink/65">Sign in to your organization dashboard.</p>
+
+    @if (session('status'))
+        <div class="mt-6 rounded-xl border border-sage/30 bg-sage/10 px-4 py-3 text-sm text-ink">
+            {{ session('status') }}
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="mt-6 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-ink">
+            <ul class="space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form method="POST" action="{{ route('login') }}" class="mt-6 space-y-5">
+        @csrf
+
+        <x-auth-input
+            label="Email"
+            name="email"
+            type="email"
+            :value="old('email')"
+            placeholder="you@example.com"
+            required
+            autofocus
+            autocomplete="email"
+        />
+
+        <x-auth-input
+            label="Password"
+            name="password"
+            type="password"
+            placeholder="••••••••"
+            required
+            autocomplete="current-password"
+        />
+
+        <div class="flex items-center">
+            <input
+                type="checkbox"
+                name="remember"
+                id="remember"
+                class="rounded border-ink/20 text-signal focus:ring-signal"
+            >
+            <label for="remember" class="ml-2 text-sm text-ink/65">Remember me</label>
         </div>
 
-        {{-- Card --}}
-        <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/80 p-8">
-            <h1 class="text-2xl font-semibold text-slate-900 mb-1">Welcome back</h1>
-            <p class="text-slate-600 mb-6">Sign in to your account</p>
+        <button
+            type="submit"
+            class="w-full rounded-full bg-coral px-4 py-3 text-sm font-semibold text-white transition hover:bg-coral/90 focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-2"
+        >
+            Sign in
+        </button>
+    </form>
 
-            @if (session('status'))
-                <div class="mb-4 p-3 rounded-lg bg-emerald-50 text-emerald-800 text-sm">
-                    {{ session('status') }}
-                </div>
-            @endif
-
-            @if ($errors->any())
-                <div class="mb-4 p-3 rounded-lg bg-red-50 text-red-800 text-sm">
-                    <ul class="list-disc list-inside space-y-1">
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('login') }}" class="space-y-5">
-                @csrf
-
-                <div>
-                    <label for="email" class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-                    <input type="email"
-                           name="email"
-                           id="email"
-                           value="{{ old('email') }}"
-                           required
-                           autofocus
-                           autocomplete="email"
-                           class="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                           placeholder="you@example.com">
-                </div>
-
-                <div>
-                    <label for="password" class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-                    <input type="password"
-                           name="password"
-                           id="password"
-                           required
-                           autocomplete="current-password"
-                           class="w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                           placeholder="••••••••">
-                </div>
-
-                <div class="flex items-center">
-                    <input type="checkbox"
-                           name="remember"
-                           id="remember"
-                           class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                    <label for="remember" class="ml-2 text-sm text-slate-600">Remember me</label>
-                </div>
-
-                <button type="submit"
-                        class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition">
-                    Sign in
-                </button>
-            </form>
-
-            <p class="mt-6 text-center text-sm text-slate-600">
-                Don't have an account?
-                <a href="{{ route('register') }}" class="font-medium text-indigo-600 hover:text-indigo-500">Register your organization</a>
-            </p>
-        </div>
-
-        <p class="mt-8 text-center text-sm text-slate-500">
-            <a href="{{ route('home') }}" class="hover:text-slate-700">← Back to home</a>
-        </p>
-    </div>
+    <p class="mt-6 text-center text-sm text-ink/65">
+        Don't have an account?
+        <a href="{{ route('register') }}" class="font-medium text-coral hover:text-coral/80">Register your organization</a>
+    </p>
 </div>
 @endsection

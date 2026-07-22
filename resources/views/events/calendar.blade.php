@@ -3,29 +3,27 @@
 @section('title', 'Calendar - ' . config('app.name'))
 
 @section('content')
-<div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+<div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
-        <h1 class="text-2xl font-bold text-slate-900">Event calendar</h1>
-        <p class="mt-1 text-slate-600">View and manage your events</p>
+        <h1 class="admin-page-title">Event calendar</h1>
+        <p class="admin-page-subtitle">View and manage your events</p>
     </div>
-    <a href="{{ route('events.create') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 shadow-sm">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    <a href="{{ route('events.create') }}" class="admin-btn-primary inline-flex items-center gap-2">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Create event
     </a>
 </div>
 
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="p-6">
-        <div id="calendar" class="fc fc-media-screen"></div>
-    </div>
-</div>
+<x-admin.card class="overflow-hidden p-6">
+    <div id="calendar" class="fc fc-media-screen"></div>
+</x-admin.card>
 
 <style>
 .fc { font-family: inherit; }
-.fc .fc-toolbar-title { font-size: 1.25rem; font-weight: 600; }
-.fc .fc-button { background: #6366f1; border-color: #6366f1; }
-.fc .fc-button:hover { background: #4f46e5; border-color: #4f46e5; }
-.fc .fc-button-primary:not(:disabled).fc-button-active { background: #4f46e5; }
+.fc .fc-toolbar-title { font-size: 1.25rem; font-weight: 600; color: #1a1a1a; }
+.fc .fc-button { background: #E8604C; border-color: #E8604C; }
+.fc .fc-button:hover { background: #d45542; border-color: #d45542; }
+.fc .fc-button-primary:not(:disabled).fc-button-active { background: #d45542; }
 .fc-event { border-radius: 6px; }
 </style>
 @endsection

@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-slate-900">Edit social post</h1>
+    <h1 class="admin-page-title">Edit social post</h1>
 </div>
 
 <div class="max-w-2xl">

@@ -62,4 +62,21 @@ return [
         'api_url' => env('TELECOM_API_URL', 'https://api.telecom.example.com'),
     ],
 
+  /*
+  |--------------------------------------------------------------------------
+  | SMS webhook (inbound RSVP replies)
+  |--------------------------------------------------------------------------
+  |
+  | webhook_provider: twilio | generic | disabled
+  |   - twilio: validates X-Twilio-Signature using TWILIO_AUTH_TOKEN
+  |   - generic: validates X-SMS-Webhook-Signature (HMAC-SHA256 of raw body)
+  |   - disabled: only allowed in local/testing (rejected in production)
+  |
+  */
+    'sms' => [
+        'webhook_provider' => env('SMS_WEBHOOK_PROVIDER', 'generic'),
+        'webhook_secret' => env('SMS_WEBHOOK_SECRET'),
+        'twilio_auth_token' => env('TWILIO_AUTH_TOKEN'),
+    ],
+
 ];

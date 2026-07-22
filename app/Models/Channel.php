@@ -8,8 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Channel extends Model
 {
     public const SLUG_EMAIL = 'email';
+
     public const SLUG_SMS = 'sms';
+
     public const SLUG_BEEP_CALL = 'beep_call';
+
     public const SLUG_SOCIAL_MEDIA = 'social_media';
 
     protected $fillable = [
@@ -17,6 +20,7 @@ class Channel extends Model
         'slug',
         'supports_subject',
         'supports_audio',
+        'supports_attachment',
     ];
 
     protected function casts(): array
@@ -24,6 +28,7 @@ class Channel extends Model
         return [
             'supports_subject' => 'boolean',
             'supports_audio' => 'boolean',
+            'supports_attachment' => 'boolean',
         ];
     }
 
@@ -45,5 +50,10 @@ class Channel extends Model
     public function supportsAudio(): bool
     {
         return $this->supports_audio;
+    }
+
+    public function supportsAttachment(): bool
+    {
+        return $this->supports_attachment;
     }
 }

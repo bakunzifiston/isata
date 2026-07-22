@@ -4,17 +4,18 @@
 
 @section('content')
 <div class="mb-8">
-    <a href="{{ route('events.show', $event) }}" class="text-slate-600 hover:text-slate-900">← {{ $event->name }}</a>
-    <h1 class="text-2xl font-bold text-slate-900 mt-2">Create message</h1>
-    <p class="mt-1 text-slate-600">Build and schedule a message for your event</p>
+    <a href="{{ route('events.show', $event) }}" class="admin-link-muted">← {{ $event->name }}</a>
+    <h1 class="admin-page-title mt-2">Create message</h1>
+    <p class="admin-page-subtitle">Build and schedule a message for your event</p>
 </div>
 
-<div class="max-w-2xl">
+<div class="max-w-4xl">
     @include('messages._form', [
         'event' => $event,
         'message' => new \App\Models\Message(),
         'channels' => $channels,
         'templates' => $templates,
+        'senderIdentities' => $senderIdentities,
         'route' => route('events.messages.store', $event),
         'method' => 'POST',
     ])

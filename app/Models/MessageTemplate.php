@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SignedUrlTtl;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -46,8 +47,8 @@ class MessageTemplate extends Model
         $content = str_replace('{venue}', $event->venue ?? '', $content);
         $content = str_replace('{meeting_link}', $event->meeting_link ?? '', $content);
         $content = str_replace('{name}', $attendee?->name ?? 'Guest', $content);
-        $content = str_replace('{rsvp_link}', $attendee ? \Illuminate\Support\Facades\URL::signedRoute('rsvp.show', ['event' => $event, 'attendee' => $attendee], now()->addDays(30)) : '', $content);
-        $content = str_replace('{feedback_link}', $attendee ? \Illuminate\Support\Facades\URL::signedRoute('feedback.show', ['event' => $event, 'attendee' => $attendee], now()->addDays(90)) : '', $content);
+        $content = str_replace('{rsvp_link}', $attendee ? \Illuminate\Support\Facades\URL::signedRoute('rsvp.show', ['event' => $event, 'attendee' => $attendee], SignedUrlTtl::rsvpExpiresAt()) : '', $content);
+        $content = str_replace('{feedback_link}', $attendee ? \Illuminate\Support\Facades\URL::signedRoute('feedback.show', ['event' => $event, 'attendee' => $attendee], SignedUrlTtl::feedbackExpiresAt()) : '', $content);
 
         return $content;
     }

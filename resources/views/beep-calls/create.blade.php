@@ -4,18 +4,18 @@
 
 @section('content')
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-slate-900">Schedule voice reminder</h1>
-    <p class="mt-1 text-slate-600">Upload or record audio, then schedule calls to attendees</p>
+    <h1 class="admin-page-title">Schedule voice reminder</h1>
+    <p class="admin-page-subtitle">Upload or record audio, then schedule calls to attendees</p>
 </div>
 
 <div class="max-w-2xl space-y-6">
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <div class="admin-card p-6">
         <form method="POST" action="{{ route('beep-calls.store') }}" enctype="multipart/form-data" id="beep-form">
             @csrf
 
             <div class="mb-6">
-                <label for="event_id" class="block text-sm font-medium text-slate-700 mb-1">Event</label>
-                <select name="event_id" id="event_id" required class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500" onchange="window.location.href='{{ route('beep-calls.create') }}?event_id='+this.value">
+                <label for="event_id" class="admin-label mb-1">Event</label>
+                <select name="event_id" id="event_id" required class="admin-input" onchange="window.location.href='{{ route('beep-calls.create') }}?event_id='+this.value">
                     <option value="">— Select event —</option>
                     @foreach($events as $e)
                     <option value="{{ $e->id }}" {{ ($preselectedEventId ?? '') == $e->id ? 'selected' : '' }}>
@@ -23,62 +23,74 @@
                     </option>
                     @endforeach
                 </select>
+                @error('event_id')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="mb-6">
-                <label class="block text-sm font-medium text-slate-700 mb-2">Attendees (with phone or email)</label>
+                <label class="admin-label mb-2">Attendees (with phone or email)</label>
                 @if($attendees->isEmpty())
-                <p class="text-sm text-slate-500">Select an event first to see attendees.</p>
+                <p class="text-sm text-ink/50">Select an event first to see attendees.</p>
                 @else
-                <div class="max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3 space-y-2">
+                <div class="max-h-48 overflow-y-auto border border-dawn-2/80 rounded-lg p-3 space-y-2">
                     @foreach($attendees as $a)
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="attendee_ids[]" value="{{ $a->id }}" class="rounded border-slate-300 text-indigo-600">
+                        <input type="checkbox" name="attendee_ids[]" value="{{ $a->id }}" class="rounded border-dawn-2 text-coral focus:ring-coral/20">
                         <span class="text-sm">{{ $a->name }} — {{ $a->phone ?: $a->email }}</span>
                     </label>
                     @endforeach
                 </div>
-                <button type="button" onclick="document.querySelectorAll('input[name=\'attendee_ids[]\']').forEach(c=>c.checked=true)" class="mt-2 text-xs text-indigo-600 hover:text-indigo-900">Select all</button>
+                <button type="button" onclick="document.querySelectorAll('input[name=\'attendee_ids[]\']').forEach(c=>c.checked=true)" class="mt-2 text-xs admin-link">Select all</button>
                 @endif
+                @error('attendee_ids')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="mb-6">
-                <label class="block text-sm font-medium text-slate-700 mb-2">Audio</label>
+                <label class="admin-label mb-2">Audio</label>
                 <div class="space-y-4">
                     <div>
-                        <p class="text-xs text-slate-500 mb-1">Upload file</p>
+                        <p class="text-xs text-ink/50 mb-1">Upload file</p>
                         <input type="file" name="audio_file" id="audio_file" accept=".mp3,.wav,.m4a,.ogg"
-                            class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-indigo-50 file:text-indigo-700">
+                            class="block w-full text-sm text-ink/50 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-coral/10 file:text-coral">
                     </div>
-                    <p class="text-xs text-slate-500">— or —</p>
+                    <p class="text-xs text-ink/50">— or —</p>
                     <div>
-                        <p class="text-xs text-slate-500 mb-1">Record</p>
+                        <p class="text-xs text-ink/50 mb-1">Record</p>
                         <div class="flex items-center gap-2">
                             <button type="button" id="record-btn" class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700">
                                 Record
                             </button>
-                            <button type="button" id="stop-btn" disabled class="px-4 py-2 rounded-lg bg-slate-600 text-white text-sm font-medium opacity-50 cursor-not-allowed">
+                            <button type="button" id="stop-btn" disabled class="admin-btn-secondary opacity-50 cursor-not-allowed">
                                 Stop
                             </button>
-                            <span id="record-status" class="text-sm text-slate-500"></span>
+                            <span id="record-status" class="text-sm text-ink/50"></span>
                         </div>
                         <audio id="record-preview" class="mt-2 w-full" controls style="display:none"></audio>
                         <input type="hidden" name="audio_path" id="audio_path">
                     </div>
                 </div>
+                @error('audio_file')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="mb-6">
-                <label for="call_schedule" class="block text-sm font-medium text-slate-700 mb-1">Call schedule</label>
+                <label for="call_schedule" class="admin-label mb-1">Call schedule</label>
                 <input type="datetime-local" name="call_schedule" id="call_schedule" required
                     min="{{ now()->addMinute()->format('Y-m-d\TH:i') }}"
-                    value="{{ now()->addHour()->format('Y-m-d\TH:i') }}"
-                    class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500">
+                    value="{{ old('call_schedule', now()->addHour()->format('Y-m-d\TH:i')) }}"
+                    class="admin-input">
+                @error('call_schedule')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="flex gap-3">
-                <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700">Schedule calls</button>
-                <a href="{{ route('beep-calls.index') }}" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700">Cancel</a>
+                <button type="submit" class="admin-btn-primary">Schedule calls</button>
+                <a href="{{ route('beep-calls.index') }}" class="admin-btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
