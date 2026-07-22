@@ -2,7 +2,7 @@
 
 namespace App\Services\Social;
 
-use App\Models\SocialPost;
+use App\Models\Message;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
  */
 class WhatsAppService
 {
-    public function publish(SocialPost $post): bool
+    public function publish(Message $post): bool
     {
         if (! config('services.whatsapp.api_key')) {
             Log::info('WhatsApp Business: Simulating post (no API key configured)', ['post_id' => $post->id]);
@@ -29,7 +29,7 @@ class WhatsAppService
         $phoneId = $credentials['phone_id'] ?? config('services.whatsapp.phone_id');
 
         if (! $phoneId) {
-            $post->update(['status' => SocialPost::STATUS_FAILED, 'error_message' => 'No phone ID']);
+            $post->update(['status' => Message::STATUS_FAILED, 'error_message' => 'No phone ID']);
             return false;
         }
 
@@ -51,7 +51,7 @@ class WhatsAppService
         }
 
         $post->update([
-            'status' => SocialPost::STATUS_FAILED,
+            'status' => Message::STATUS_FAILED,
             'error_message' => $response->json('error.message', $response->body()),
         ]);
         return false;

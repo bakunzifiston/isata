@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Attendee;
+use App\Http\Requests\StoreSurveyRequest;
+use App\Http\Requests\UpdateSurveyRequest;
 use App\Models\Event;
 use App\Models\Survey;
 use Illuminate\Http\RedirectResponse;
@@ -13,12 +14,9 @@ class SurveyController extends Controller
 {
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Survey::class);
+
         $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403);
-        }
-
         $eventId = $request->input('event_id');
         $query = Survey::where('organization_id', $organization->id)
             ->with(['event', 'feedback'])
@@ -42,12 +40,9 @@ class SurveyController extends Controller
 
     public function create(Request $request): View
     {
+        $this->authorize('create', Survey::class);
+
         $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403);
-        }
-
         $events = $organization->events()
             ->whereIn('status', [Event::STATUS_SCHEDULED, Event::STATUS_COMPLETED])
             ->orderByDesc('date')
@@ -59,27 +54,10 @@ class SurveyController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreSurveyRequest $request): RedirectResponse
     {
         $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'event_id' => ['required', 'exists:events,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'questions' => ['required', 'array'],
-            'questions.*.id' => ['required', 'string'],
-            'questions.*.type' => ['required', 'in:text,rating,select,multiple'],
-            'questions.*.label' => ['required', 'string', 'max:500'],
-            'questions.*.options' => ['nullable'],
-            'questions.*.required' => ['nullable', 'boolean'],
-            'thank_you_message' => ['nullable', 'string', 'max:1000'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $event = Event::findOrFail($validated['event_id']);
         if ($event->organization_id !== $organization->id) {
@@ -90,19 +68,7 @@ class SurveyController extends Controller
             'event_id' => $validated['event_id'],
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
-            'questions' => array_map(function ($q) {
-                $opts = $q['options'] ?? [];
-                if (is_string($opts)) {
-                    $opts = array_filter(array_map('trim', explode("\n", $opts)));
-                }
-                return [
-                    'id' => $q['id'],
-                    'type' => $q['type'],
-                    'label' => $q['label'],
-                    'options' => array_values($opts),
-                    'required' => ! empty($q['required']),
-                ];
-            }, $validated['questions']),
+            'questions' => $this->normalizeQuestions($validated['questions']),
             'thank_you_message' => $validated['thank_you_message'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
@@ -112,12 +78,9 @@ class SurveyController extends Controller
 
     public function edit(Survey $survey): View
     {
+        $this->authorize('update', $survey);
+
         $organization = auth()->user()->organization;
-
-        if (! $organization || $survey->organization_id !== $organization->id) {
-            abort(404);
-        }
-
         $events = $organization->events()
             ->whereIn('status', [Event::STATUS_SCHEDULED, Event::STATUS_COMPLETED])
             ->orderByDesc('date')
@@ -129,45 +92,15 @@ class SurveyController extends Controller
         ]);
     }
 
-    public function update(Request $request, Survey $survey): RedirectResponse
+    public function update(UpdateSurveyRequest $request, Survey $survey): RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $survey->organization_id !== $organization->id) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'event_id' => ['required', 'exists:events,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'questions' => ['required', 'array'],
-            'questions.*.id' => ['required', 'string'],
-            'questions.*.type' => ['required', 'in:text,rating,select,multiple'],
-            'questions.*.label' => ['required', 'string', 'max:500'],
-            'questions.*.options' => ['nullable'],
-            'questions.*.required' => ['nullable', 'boolean'],
-            'thank_you_message' => ['nullable', 'string', 'max:1000'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $survey->update([
             'event_id' => $validated['event_id'],
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
-            'questions' => array_map(function ($q) {
-                $opts = $q['options'] ?? [];
-                if (is_string($opts)) {
-                    $opts = array_filter(array_map('trim', explode("\n", $opts)));
-                }
-                return [
-                    'id' => $q['id'],
-                    'type' => $q['type'],
-                    'label' => $q['label'],
-                    'options' => array_values($opts),
-                    'required' => ! empty($q['required']),
-                ];
-            }, $validated['questions']),
+            'questions' => $this->normalizeQuestions($validated['questions']),
             'thank_you_message' => $validated['thank_you_message'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
@@ -177,11 +110,7 @@ class SurveyController extends Controller
 
     public function destroy(Survey $survey): RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $survey->organization_id !== $organization->id) {
-            abort(403);
-        }
+        $this->authorize('delete', $survey);
 
         $survey->delete();
 
@@ -190,11 +119,7 @@ class SurveyController extends Controller
 
     public function responses(Survey $survey): View
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $survey->organization_id !== $organization->id) {
-            abort(404);
-        }
+        $this->authorize('viewResponses', $survey);
 
         $feedback = $survey->feedback()->with('attendee')->orderByDesc('submitted_at')->paginate(20);
 
@@ -206,17 +131,13 @@ class SurveyController extends Controller
 
     public function report(Survey $survey): View
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $survey->organization_id !== $organization->id) {
-            abort(404);
-        }
+        $this->authorize('viewResponses', $survey);
 
         $feedback = $survey->feedback()->with('attendee')->get();
 
         $summary = [];
         foreach ($survey->questions as $q) {
-            $answers = $feedback->pluck('responses.' . $q['id'])->filter();
+            $answers = $feedback->pluck('responses.'.$q['id'])->filter();
             $values = $answers->flatten()->filter();
             $summary[$q['id']] = [
                 'label' => $q['label'],
@@ -234,5 +155,27 @@ class SurveyController extends Controller
             'feedback' => $feedback,
             'summary' => $summary,
         ]);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $questions
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeQuestions(array $questions): array
+    {
+        return array_map(function ($q) {
+            $opts = $q['options'] ?? [];
+            if (is_string($opts)) {
+                $opts = array_filter(array_map('trim', explode("\n", $opts)));
+            }
+
+            return [
+                'id' => $q['id'],
+                'type' => $q['type'],
+                'label' => $q['label'],
+                'options' => array_values($opts),
+                'required' => ! empty($q['required']),
+            ];
+        }, $questions);
     }
 }

@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
             'system_admin' => \App\Http\Middleware\EnsureUserIsSystemAdmin::class,
             'organization' => \App\Http\Middleware\EnsureUserBelongsToOrganization::class,
+            'verify.sms.webhook' => \App\Http\Middleware\VerifySmsWebhook::class,
         ]);
         $middleware->redirectUsersTo('/dashboard');
     })

@@ -22,6 +22,6 @@
         <p class="event">participated in {{ $event->name }}</p>
         <p class="date">{{ $event->date->format('F j, Y') }}</p>
     </div>
-    <p class="text-center text-sm text-slate-500 mb-4">Print this page (Ctrl+P / Cmd+P) to save as PDF</p>
+    <p class="text-center text-sm text-ink/50 mb-4">Print this page (Ctrl+P / Cmd+P) to save as PDF</p>
 </body>
 </html>

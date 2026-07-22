@@ -2,26 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreEventRequest;
+use App\Http\Requests\StoreEventWizardRequest;
+use App\Http\Requests\UpdateEventRequest;
+use App\Models\Channel;
 use App\Models\Event;
-use App\Models\EventReminderSettings;
-use App\Models\MessageTemplate;
+use App\Models\Message;
 use App\Models\OrganizationUsage;
 use App\Notifications\EventCreatedNotification;
+use App\Services\ContactService;
+use App\Services\UsageLimitService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class EventController extends Controller
 {
+    public function __construct(
+        protected ContactService $contactService
+    ) {}
+
     public function index(Request $request): View
     {
-        $organization = auth()->user()->organization;
+        $this->authorize('viewAny', Event::class);
 
-        if (! $organization) {
-            abort(403, 'No organization associated with your account.');
-        }
+        $organization = auth()->user()->organization;
 
         if (! Schema::hasTable('events')) {
             $events = new LengthAwarePaginator(
@@ -31,6 +39,7 @@ class EventController extends Controller
                 1,
                 ['path' => $request->url(), 'query' => $request->query()]
             );
+
             return view('events.index', ['events' => $events]);
         }
 
@@ -49,41 +58,100 @@ class EventController extends Controller
 
     public function create(): View
     {
-        $organization = auth()->user()->organization;
+        $this->authorize('create', Event::class);
 
-        if (! $organization) {
-            abort(403, 'No organization associated with your account.');
-        }
+        $channels = Channel::orderBy('name')->get();
 
-        return view('events.create', [
-            'event' => new Event(['status' => Event::STATUS_DRAFT]),
+        return view('events.wizard', [
+            'event' => new Event([
+                'status' => Event::STATUS_DRAFT,
+                'event_format' => Event::FORMAT_PHYSICAL,
+            ]),
+            'channels' => $channels,
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function storeWizard(StoreEventWizardRequest $request): RedirectResponse
     {
         $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403, 'Unauthorized.');
-        }
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:5000'],
-            'date' => ['required', 'date'],
-            'time' => ['nullable', 'string', 'regex:/^\d{2}:\d{2}$/'],
-            'venue' => ['nullable', 'string', 'max:255'],
-            'meeting_link' => ['nullable', 'url', 'max:500'],
-            'status' => ['required', 'in:draft,scheduled'],
-        ]);
-
-        $validated['time'] = $validated['time'] ? $validated['time'] . ':00' : null;
+        $validated = $request->normalizedEvent();
 
         if (! Schema::hasTable('events')) {
             return redirect()->route('events.create')
                 ->with('error', 'Events cannot be created at the moment. Please try again later or contact support.')
                 ->withInput($request->except('_token'));
+        }
+
+        if ($validated['status'] === Event::STATUS_SCHEDULED) {
+            app(UsageLimitService::class)->assertCanScheduleEvent($organization);
+        }
+
+        $event = DB::transaction(function () use ($organization, $validated, $request) {
+            $event = $organization->events()->create([
+                ...$validated,
+                'created_by' => auth()->id(),
+            ]);
+
+            if (filled($request->input('guests_bulk'))) {
+                $lines = array_filter(array_map('trim', explode("\n", $request->input('guests_bulk'))));
+                $rows = [];
+                foreach ($lines as $line) {
+                    $parts = array_map('trim', str_getcsv($line));
+                    if (count($parts) < 2) {
+                        continue;
+                    }
+                    $rows[] = [
+                        'name' => $parts[0],
+                        'email' => $parts[1],
+                        'phone' => $parts[2] ?? null,
+                        'company' => $parts[3] ?? null,
+                    ];
+                }
+                if (! empty($rows)) {
+                    $this->contactService->bulkAssignToEvent($event, $rows);
+                }
+            }
+
+            if ($request->shouldCreateMessage()) {
+                $event->messages()->create([
+                    'channel_id' => $request->input('message_channel_id'),
+                    'content' => $request->input('message_content'),
+                    'content_type' => Message::CONTENT_TYPE_TEXT,
+                    'status' => $request->input('message_status', Message::STATUS_DRAFT),
+                ]);
+            }
+
+            return $event;
+        });
+
+        if ($validated['status'] === Event::STATUS_SCHEDULED) {
+            $this->incrementEventsUsage($organization->id);
+        }
+
+        foreach ($organization->admins as $admin) {
+            $admin->notify(new EventCreatedNotification($event));
+        }
+
+        $message = $validated['status'] === Event::STATUS_DRAFT
+            ? 'Event saved as draft.'
+            : 'Event created successfully.';
+
+        return redirect()->route('events.show', $event)->with('status', $message);
+    }
+
+    public function store(StoreEventRequest $request): RedirectResponse
+    {
+        $organization = auth()->user()->organization;
+        $validated = $request->normalized();
+
+        if (! Schema::hasTable('events')) {
+            return redirect()->route('events.create')
+                ->with('error', 'Events cannot be created at the moment. Please try again later or contact support.')
+                ->withInput($request->except('_token'));
+        }
+
+        if ($validated['status'] === Event::STATUS_SCHEDULED) {
+            app(UsageLimitService::class)->assertCanScheduleEvent($organization);
         }
 
         $event = $organization->events()->create([
@@ -99,22 +167,16 @@ class EventController extends Controller
             $admin->notify(new EventCreatedNotification($event));
         }
 
-        // Offline-ready placeholder: Draft events can be queued for sync when back online.
-        // Future: Store draft in localStorage/IndexedDB, sync via background sync API.
         $message = $validated['status'] === Event::STATUS_DRAFT
             ? 'Event saved as draft.'
             : 'Event created successfully.';
 
-        // Redirect to index instead of show to avoid accidental 404 from stale/wrong event links
-        // in environments with inconsistent data or tenant-scoped access mismatches.
         return redirect()->route('events.index')->with('status', $message);
     }
 
     public function show(Event $event): View|RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $event->organization_id !== $organization->id) {
+        if (! $this->userCanAccessEvent($event)) {
             return redirect()->route('events.index')
                 ->with('error', 'That event is not available in your organization.');
         }
@@ -128,13 +190,12 @@ class EventController extends Controller
 
     public function edit(Event $event): View|RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $event->organization_id !== $organization->id) {
+        if (! $this->userCanAccessEvent($event)) {
             return redirect()->route('events.index')
                 ->with('error', 'That event is not available in your organization.');
         }
 
+        $organization = auth()->user()->organization;
         $event->load('reminderSettings');
         $templates = $organization->messageTemplates()->with('channel')->orderBy('name')->get();
 
@@ -144,27 +205,17 @@ class EventController extends Controller
         ]);
     }
 
-    public function update(Request $request, Event $event): RedirectResponse
+    public function update(UpdateEventRequest $request, Event $event): RedirectResponse
     {
         $organization = auth()->user()->organization;
-
-        if (! $organization || $event->organization_id !== $organization->id) {
-            abort(403, 'Unauthorized.');
-        }
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:5000'],
-            'date' => ['required', 'date'],
-            'time' => ['nullable', 'string', 'regex:/^\d{2}:\d{2}$/'],
-            'venue' => ['nullable', 'string', 'max:255'],
-            'meeting_link' => ['nullable', 'url', 'max:500'],
-            'status' => ['required', 'in:draft,scheduled,cancelled,completed'],
-        ]);
-
-        $validated['time'] = $validated['time'] ? $validated['time'] . ':00' : null;
+        $validated = $request->normalized();
 
         $wasScheduled = $event->isScheduled();
+
+        if (! $wasScheduled && $validated['status'] === Event::STATUS_SCHEDULED) {
+            app(UsageLimitService::class)->assertCanScheduleEvent($organization);
+        }
+
         $event->update($validated);
 
         if (! $wasScheduled && $validated['status'] === Event::STATUS_SCHEDULED) {
@@ -184,11 +235,7 @@ class EventController extends Controller
 
     public function destroy(Event $event): RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $event->organization_id !== $organization->id) {
-            abort(403, 'Unauthorized.');
-        }
+        $this->authorize('delete', $event);
 
         $event->delete();
 
@@ -197,24 +244,18 @@ class EventController extends Controller
 
     public function calendar(): View
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403, 'No organization associated with your account.');
-        }
+        $this->authorize('viewAny', Event::class);
 
         return view('events.calendar', [
-            'organization' => $organization,
+            'organization' => auth()->user()->organization,
         ]);
     }
 
     public function calendarData(Request $request)
     {
-        $organization = auth()->user()->organization;
+        $this->authorize('viewAny', Event::class);
 
-        if (! $organization) {
-            return response()->json([]);
-        }
+        $organization = auth()->user()->organization;
 
         $start = $request->input('start', now()->startOfMonth()->format('Y-m-d'));
         $end = $request->input('end', now()->endOfMonth()->format('Y-m-d'));
@@ -226,8 +267,9 @@ class EventController extends Controller
             ->map(function (Event $e) {
                 $startStr = $e->date->format('Y-m-d');
                 if ($e->time) {
-                    $startStr .= 'T' . substr($e->time, 0, 5);
+                    $startStr .= 'T'.substr($e->time, 0, 5);
                 }
+
                 return [
                     'id' => $e->id,
                     'title' => $e->name,
@@ -241,6 +283,11 @@ class EventController extends Controller
             });
 
         return response()->json($events);
+    }
+
+    private function userCanAccessEvent(Event $event): bool
+    {
+        return auth()->user()->can('view', $event);
     }
 
     private function incrementEventsUsage(int $organizationId): void
