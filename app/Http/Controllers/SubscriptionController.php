@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSubscriptionUpgradeRequest;
 use App\Models\SubscriptionPlan;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -26,13 +28,15 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    public function upgrade(\Illuminate\Http\Request $request): View
+    public function upgrade(Request $request): View
     {
         $organization = auth()->user()->organization;
 
         if (! $organization) {
             abort(403, 'No organization associated with your account.');
         }
+
+        $this->authorize('manageBilling', $organization);
 
         if (! Schema::hasTable('subscription_plans')) {
             return view('subscription.upgrade', [
@@ -55,20 +59,17 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    public function storeUpgrade(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    public function storeUpgrade(StoreSubscriptionUpgradeRequest $request): \Illuminate\Http\RedirectResponse
     {
         $organization = auth()->user()->organization;
-
-        if (! $organization || ! auth()->user()->isOrganizationAdmin()) {
-            abort(403, 'Unauthorized.');
-        }
 
         if (! Schema::hasTable('subscription_plans')) {
             return redirect()->route('subscription.plans')
                 ->with('error', 'Subscription plans are not available yet.');
         }
 
-        $plan = SubscriptionPlan::findOrFail($request->input('plan_id'));
+        $validated = $request->validated();
+        $plan = SubscriptionPlan::findOrFail($validated['plan_id']);
 
         if ($plan->id === $organization->subscription_plan_id) {
             return redirect()->route('subscription.plans')->with('status', 'You are already on this plan.');
@@ -77,6 +78,6 @@ class SubscriptionController extends Controller
         $organization->update(['subscription_plan_id' => $plan->id]);
 
         return redirect()->route('subscription.plans')
-            ->with('status', 'Subscription updated to ' . $plan->name . '.');
+            ->with('status', 'Subscription updated to '.$plan->name.'.');
     }
 }

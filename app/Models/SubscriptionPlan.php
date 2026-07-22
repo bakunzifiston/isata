@@ -63,8 +63,43 @@ class SubscriptionPlan extends Model
             return 'Unlimited';
         }
         if ($key === 'events_per_month') {
-            return $value . ' event' . ($value != 1 ? 's' : '') . '/month';
+            return $value.' event'.($value != 1 ? 's' : '').'/month';
         }
+
         return (string) $value;
+    }
+
+    public function isMostPopular(): bool
+    {
+        return $this->slug === self::SLUG_PRO;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function marketingFeatures(): array
+    {
+        $features = [
+            $this->formatLimit('events_per_month'),
+            $this->formatLimit('contacts').' contacts',
+        ];
+
+        $features[] = match ($this->slug) {
+            self::SLUG_FREEMIUM => 'Email & SMS',
+            self::SLUG_BASIC => 'Email, SMS & social',
+            self::SLUG_PRO => 'All channels except beep call',
+            self::SLUG_PREMIUM => 'Branded beep calls included',
+            default => 'Multi-channel communications',
+        };
+
+        $features[] = match ($this->slug) {
+            self::SLUG_FREEMIUM => 'Basic RSVP tracking',
+            self::SLUG_BASIC => 'Calendar sync',
+            self::SLUG_PRO => 'Analytics & segments',
+            self::SLUG_PREMIUM => 'Priority support',
+            default => 'Event management tools',
+        };
+
+        return $features;
     }
 }

@@ -10,6 +10,7 @@ class CertificateController extends Controller
 {
     public function show(Feedback $feedback): View|Response
     {
+        // Certificate view requires authentication and org ownership — not a public signed URL.
         $organization = auth()->user()->organization;
 
         if (! $organization || $feedback->event->organization_id !== $organization->id) {

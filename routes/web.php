@@ -1,38 +1,51 @@
 <?php
 
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\AttendeeController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterOrganizationController;
 use App\Http\Controllers\BeepCallController;
 use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmailSenderIdentityController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\FeedbackController;
-use App\Http\Controllers\AttendeeController;
+use App\Http\Controllers\MessageAttachmentController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\MessageHubController;
+use App\Http\Controllers\MessageTemplateController;
+use App\Http\Controllers\OrganizationProfileController;
+use App\Http\Controllers\QueueMonitorController;
 use App\Http\Controllers\RsvpController;
 use App\Http\Controllers\RsvpDashboardController;
-use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\MessageController;
-use App\Http\Controllers\MessageTemplateController;
 use App\Http\Controllers\SocialAccountController;
-use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\SocialPostController;
-use App\Http\Controllers\QueueMonitorController;
-use App\Http\Controllers\Auth\RegisterOrganizationController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\EventController;
-use App\Http\Controllers\OrganizationProfileController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\UsageController;
 use App\Http\Controllers\UserController;
+use App\Models\SubscriptionPlan;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 Route::get('/', function () {
-    return view('welcome');
+    $plans = Schema::hasTable('subscription_plans')
+        ? SubscriptionPlan::orderBy('price')->get()
+        : collect();
+
+    return view('marketing.home', compact('plans'));
 })->name('home');
 
 Route::get('rsvp/thank-you', [RsvpController::class, 'thankYou'])->name('rsvp.thank-you');
 Route::get('events/{event}/rsvp', [RsvpController::class, 'eventLanding'])->name('events.rsvp');
-Route::get('rsvp/lookup', [RsvpController::class, 'lookup'])->name('rsvp.lookup');
+Route::get('rsvp/lookup', [RsvpController::class, 'lookup'])
+    ->middleware('throttle:10,1')
+    ->name('rsvp.lookup');
 Route::get('rsvp/{event}/{attendee}', [RsvpController::class, 'show'])->name('rsvp.show')->middleware('signed');
 Route::post('rsvp/{event}/{attendee}/respond', [RsvpController::class, 'store'])->name('rsvp.store')->middleware('signed');
-Route::post('webhook/sms/rsvp', [RsvpController::class, 'smsWebhook'])->name('webhook.sms.rsvp');
+Route::post('webhook/sms/rsvp', [RsvpController::class, 'smsWebhook'])
+    ->middleware('verify.sms.webhook')
+    ->name('webhook.sms.rsvp');
 
 Route::get('feedback/thank-you', [FeedbackController::class, 'thankYou'])->name('feedback.thank-you');
 Route::get('feedback/{event}/{attendee}', [FeedbackController::class, 'show'])->name('feedback.show')->middleware('signed');
@@ -49,7 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
 
-        Route::middleware('system_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
+    Route::middleware('system_admin')->prefix('super-admin')->name('super-admin.')->group(function () {
         Route::get('/', [\App\Http\Controllers\SuperAdminController::class, 'dashboard'])->name('dashboard');
         Route::get('organizations', [\App\Http\Controllers\SuperAdminController::class, 'organizations'])->name('organizations');
         Route::post('organizations/{organization}/toggle', [\App\Http\Controllers\SuperAdminController::class, 'toggleOrganization'])->name('organizations.toggle');
@@ -80,19 +93,37 @@ Route::middleware('auth')->group(function () {
 
         Route::get('usage', [UsageController::class, 'index'])->name('usage.index');
 
+        Route::get('contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');
+        Route::get('contacts/create', [\App\Http\Controllers\ContactController::class, 'create'])->name('contacts.create');
+        Route::post('contacts', [\App\Http\Controllers\ContactController::class, 'store'])->name('contacts.store');
+        Route::get('contacts/{contact}/edit', [\App\Http\Controllers\ContactController::class, 'edit'])->name('contacts.edit');
+        Route::put('contacts/{contact}', [\App\Http\Controllers\ContactController::class, 'update'])->name('contacts.update');
+        Route::delete('contacts/{contact}', [\App\Http\Controllers\ContactController::class, 'destroy'])->name('contacts.destroy');
+
         Route::get('events', [EventController::class, 'index'])->name('events.index');
         Route::get('events/calendar', [EventController::class, 'calendar'])->name('events.calendar');
         Route::get('events/calendar/data', [EventController::class, 'calendarData'])->name('events.calendar.data');
         Route::get('events/create', [EventController::class, 'create'])->name('events.create');
+        Route::post('events/wizard', [EventController::class, 'storeWizard'])->name('events.wizard.store');
         Route::post('events', [EventController::class, 'store'])->name('events.store');
         Route::get('events/{event}', [EventController::class, 'show'])->name('events.show');
         Route::get('events/{event}/edit', [EventController::class, 'edit'])->name('events.edit');
         Route::put('events/{event}', [EventController::class, 'update'])->name('events.update');
         Route::delete('events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
 
+        Route::get('messages', [MessageHubController::class, 'index'])->name('messages.hub');
+
         Route::resource('events.messages', MessageController::class)->except(['show']);
+        Route::get('messages/{message}/attachment', [MessageAttachmentController::class, 'download'])
+            ->name('messages.attachment.download');
         Route::post('events/{event}/messages/{message}/send-now', [MessageController::class, 'sendNow'])->name('events.messages.send-now');
         Route::resource('templates', MessageTemplateController::class)->except(['show']);
+        Route::get('email-senders', [EmailSenderIdentityController::class, 'index'])->name('email-senders.index');
+        Route::get('email-senders/create', [EmailSenderIdentityController::class, 'create'])->name('email-senders.create');
+        Route::post('email-senders', [EmailSenderIdentityController::class, 'store'])->name('email-senders.store');
+        Route::get('email-senders/{identity}/edit', [EmailSenderIdentityController::class, 'edit'])->name('email-senders.edit');
+        Route::put('email-senders/{identity}', [EmailSenderIdentityController::class, 'update'])->name('email-senders.update');
+        Route::delete('email-senders/{identity}', [EmailSenderIdentityController::class, 'destroy'])->name('email-senders.destroy');
         Route::get('queue/monitor', [QueueMonitorController::class, 'index'])->name('queue.monitor');
         Route::get('rsvp/dashboard', [RsvpDashboardController::class, 'index'])->name('rsvp.dashboard');
         Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');

@@ -4,16 +4,17 @@
 
 @section('content')
 <div class="mb-8">
-    <a href="{{ route('events.show', $event) }}" class="text-slate-600 hover:text-slate-900">← {{ $event->name }}</a>
-    <h1 class="text-2xl font-bold text-slate-900 mt-2">Edit message</h1>
+    <a href="{{ route('events.show', $event) }}" class="admin-link-muted">← {{ $event->name }}</a>
+    <h1 class="admin-page-title mt-2">Edit message</h1>
 </div>
 
-<div class="max-w-2xl">
+<div class="max-w-4xl">
     @include('messages._form', [
         'event' => $event,
         'message' => $message,
         'channels' => $channels,
         'templates' => $templates,
+        'senderIdentities' => $senderIdentities,
         'route' => route('events.messages.update', [$event, $message]),
         'method' => 'PUT',
     ])

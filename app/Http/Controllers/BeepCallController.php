@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBeepCallRequest;
+use App\Http\Requests\UploadBeepCallAudioRequest;
+use App\Jobs\PlaceBeepCallJob;
 use App\Models\Attendee;
 use App\Models\BeepCall;
 use App\Models\Event;
-use App\Jobs\PlaceBeepCallJob;
+use App\Models\SubscriptionPlan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -13,19 +16,22 @@ use Illuminate\View\View;
 
 class BeepCallController extends Controller
 {
-    protected function ensurePremium(): void
+    private function ensureBeepCallsAccess(): ?RedirectResponse
     {
-        $organization = auth()->user()->organization;
-        $plan = $organization?->subscriptionPlan;
-
-        if (! $organization || ! $plan?->hasBeepCalls()) {
-            abort(403, 'Beep calls require a Premium subscription. Please upgrade.');
+        if (auth()->user()->can('viewAny', BeepCall::class)) {
+            return null;
         }
+
+        return redirect()
+            ->route('subscription.upgrade', ['plan' => SubscriptionPlan::SLUG_PREMIUM])
+            ->with('error', 'Beep calls are included on the Premium plan. Upgrade to schedule voice reminders to attendees.');
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
-        $this->ensurePremium();
+        if ($redirect = $this->ensureBeepCallsAccess()) {
+            return $redirect;
+        }
 
         $organization = auth()->user()->organization;
         $eventId = $request->input('event_id');
@@ -50,9 +56,11 @@ class BeepCallController extends Controller
         ]);
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
-        $this->ensurePremium();
+        if ($redirect = $this->ensureBeepCallsAccess()) {
+            return $redirect;
+        }
 
         $organization = auth()->user()->organization;
 
@@ -76,31 +84,17 @@ class BeepCallController extends Controller
         ]);
     }
 
-    public function uploadAudio(Request $request): \Illuminate\Http\JsonResponse
+    public function uploadAudio(UploadBeepCallAudioRequest $request): \Illuminate\Http\JsonResponse
     {
-        $this->ensurePremium();
-
-        $request->validate(['audio' => ['required', 'file', 'mimes:mp3,wav,m4a,ogg,webm', 'max:10240']]);
-
         $path = $request->file('audio')->store('beep-calls/audio', 'public');
 
         return response()->json(['path' => $path]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreBeepCallRequest $request): RedirectResponse
     {
-        $this->ensurePremium();
-
         $organization = auth()->user()->organization;
-
-        $validated = $request->validate([
-            'event_id' => ['required', 'exists:events,id'],
-            'attendee_ids' => ['required', 'array'],
-            'attendee_ids.*' => ['exists:attendees,id'],
-            'audio_file' => ['nullable', 'file', 'mimes:mp3,wav,m4a,ogg', 'max:10240'],
-            'audio_path' => ['nullable', 'string', 'max:500'],
-            'call_schedule' => ['required', 'date', 'after_or_equal:now'],
-        ]);
+        $validated = $request->validated();
 
         $event = Event::findOrFail($validated['event_id']);
         if ($event->organization_id !== $organization->id) {
@@ -136,13 +130,11 @@ class BeepCallController extends Controller
 
     public function destroy(BeepCall $beepCall): RedirectResponse
     {
-        $this->ensurePremium();
-
-        $organization = auth()->user()->organization;
-
-        if ($beepCall->organization_id !== $organization->id) {
-            abort(403);
+        if ($redirect = $this->ensureBeepCallsAccess()) {
+            return $redirect;
         }
+
+        $this->authorize('delete', $beepCall);
 
         if (in_array($beepCall->call_status, [BeepCall::STATUS_PENDING, BeepCall::STATUS_QUEUED])) {
             if ($beepCall->audio_file) {
@@ -156,13 +148,11 @@ class BeepCallController extends Controller
 
     public function callNow(BeepCall $beepCall): RedirectResponse
     {
-        $this->ensurePremium();
-
-        $organization = auth()->user()->organization;
-
-        if ($beepCall->organization_id !== $organization->id) {
-            abort(403);
+        if ($redirect = $this->ensureBeepCallsAccess()) {
+            return $redirect;
         }
+
+        $this->authorize('callNow', $beepCall);
 
         if (! in_array($beepCall->call_status, [BeepCall::STATUS_PENDING, BeepCall::STATUS_QUEUED])) {
             return redirect()->route('beep-calls.index')->with('error', 'Call already processed.');

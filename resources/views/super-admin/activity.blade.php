@@ -4,19 +4,19 @@
 
 @section('content')
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-slate-900">Activity Logs</h1>
-    <p class="mt-1 text-slate-600">User actions and security tracking</p>
+    <h1 class="admin-page-title">Activity Logs</h1>
+    <p class="admin-page-subtitle">User actions and security tracking</p>
 </div>
 
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <ul class="divide-y divide-slate-200">
+<div class="admin-table-wrap">
+    <ul class="divide-y divide-dawn-2/80">
         @forelse($logs as $log)
-        <li class="px-6 py-4 hover:bg-slate-50">
+        <li class="px-6 py-4 hover:bg-dawn-2/30">
             <div class="flex justify-between gap-4">
                 <div>
-                    <p class="text-sm font-medium text-slate-900">{{ $log->action }}</p>
-                    <p class="text-sm text-slate-500">{{ $log->description }}</p>
-                    <p class="text-xs text-slate-400 mt-1">
+                    <p class="text-sm font-medium text-ink">{{ $log->action }}</p>
+                    <p class="text-sm text-ink/50">{{ $log->description }}</p>
+                    <p class="text-xs text-ink/45 mt-1">
                         {{ $log->user?->name ?? 'System' }} · {{ $log->created_at->format('M j, Y H:i') }}
                         @if($log->ip_address)
                             · {{ $log->ip_address }}
@@ -26,11 +26,11 @@
             </div>
         </li>
         @empty
-        <li class="px-6 py-12 text-center text-slate-500">No activity logs</li>
+        <li class="px-6 py-12 text-center text-ink/50">No activity logs</li>
         @endforelse
     </ul>
     @if($logs->hasPages())
-    <div class="px-6 py-4 border-t border-slate-200">{{ $logs->links() }}</div>
+    <div class="px-6 py-4 border-t border-dawn-2/80">{{ $logs->links() }}</div>
     @endif
 </div>
 @endsection

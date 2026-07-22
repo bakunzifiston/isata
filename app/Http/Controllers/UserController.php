@@ -2,22 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class UserController extends Controller
 {
     public function index(): View
     {
+        $this->authorize('viewAny', User::class);
+
         $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403, 'No organization associated with your account.');
-        }
-
         $users = $organization->users()->orderBy('name')->get();
 
         return view('users.index', [
@@ -27,34 +24,15 @@ class UserController extends Controller
 
     public function create(): View
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization) {
-            abort(403, 'No organization associated with your account.');
-        }
-
-        if (! auth()->user()->isOrganizationAdmin()) {
-            abort(403, 'Only organization admins can add users.');
-        }
+        $this->authorize('create', User::class);
 
         return view('users.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreUserRequest $request): RedirectResponse
     {
         $organization = auth()->user()->organization;
-
-        if (! $organization || ! auth()->user()->isOrganizationAdmin()) {
-            abort(403, 'Unauthorized.');
-        }
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'password' => ['required', 'confirmed', Password::defaults()],
-            'role' => ['required', 'in:admin,staff'],
-        ]);
+        $validated = $request->validated();
 
         $organization->users()->create([
             'name' => $validated['name'],
@@ -70,36 +48,16 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $user->organization_id !== $organization->id) {
-            abort(404);
-        }
-
-        if (! auth()->user()->isOrganizationAdmin()) {
-            abort(403, 'Only organization admins can edit users.');
-        }
+        $this->authorize('update', $user);
 
         return view('users.edit', [
             'user' => $user,
         ]);
     }
 
-    public function update(Request $request, User $user): RedirectResponse
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $user->organization_id !== $organization->id || ! auth()->user()->isOrganizationAdmin()) {
-            abort(403, 'Unauthorized.');
-        }
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'role' => ['required', 'in:admin,staff'],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
-        ]);
+        $validated = $request->validated();
 
         $user->update([
             'name' => $validated['name'],
@@ -118,11 +76,7 @@ class UserController extends Controller
 
     public function destroy(User $user): RedirectResponse
     {
-        $organization = auth()->user()->organization;
-
-        if (! $organization || $user->organization_id !== $organization->id || ! auth()->user()->isOrganizationAdmin()) {
-            abort(403, 'Unauthorized.');
-        }
+        $this->authorize('delete', $user);
 
         if ($user->id === auth()->id()) {
             return redirect()->route('users.index')

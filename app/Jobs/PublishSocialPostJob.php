@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\SocialPost;
+use App\Models\Message;
 use App\Services\Social\FacebookService;
 use App\Services\Social\LinkedInService;
 use App\Services\Social\TwitterService;
@@ -19,29 +19,32 @@ class PublishSocialPostJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
-        public SocialPost $post
+        public Message $message
     ) {}
 
     public function handle(): void
     {
-        $post = $this->post->fresh();
+        $message = $this->message->fresh(['channel']);
 
-        if (! $post || $post->status !== SocialPost::STATUS_SCHEDULED) {
+        if (! $message || ! $message->isSocialMessage() || $message->status !== Message::STATUS_SCHEDULED) {
             return;
         }
 
-        $success = match ($post->platform) {
-            'facebook' => app(FacebookService::class)->publish($post),
-            'linkedin' => app(LinkedInService::class)->publish($post),
-            'twitter' => app(TwitterService::class)->publish($post),
-            'whatsapp' => app(WhatsAppService::class)->publish($post),
+        $success = match ($message->social_platform) {
+            'facebook' => app(FacebookService::class)->publish($message),
+            'linkedin' => app(LinkedInService::class)->publish($message),
+            'twitter' => app(TwitterService::class)->publish($message),
+            'whatsapp' => app(WhatsAppService::class)->publish($message),
             default => false,
         };
 
         if ($success) {
-            $post->update(['status' => SocialPost::STATUS_PUBLISHED]);
+            $message->update([
+                'status' => Message::STATUS_SENT,
+                'published_at' => now(),
+            ]);
         } else {
-            Log::error("PublishSocialPostJob failed for post {$post->id}");
+            Log::error("PublishSocialPostJob failed for message {$message->id}");
         }
     }
 }

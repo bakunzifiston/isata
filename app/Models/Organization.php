@@ -40,6 +40,11 @@ class Organization extends Model
         return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
     }
 
+    public function hasBeepCallsFeature(): bool
+    {
+        return (bool) $this->subscriptionPlan?->hasBeepCalls();
+    }
+
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
@@ -55,9 +60,19 @@ class Organization extends Model
         return $this->hasMany(Event::class);
     }
 
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class);
+    }
+
     public function messageTemplates(): HasMany
     {
         return $this->hasMany(MessageTemplate::class, 'organization_id');
+    }
+
+    public function emailSenderIdentities(): HasMany
+    {
+        return $this->hasMany(EmailSenderIdentity::class, 'organization_id');
     }
 
     public function socialAccounts(): HasMany
@@ -65,9 +80,10 @@ class Organization extends Model
         return $this->hasMany(SocialAccount::class, 'organization_id');
     }
 
-    public function socialPosts(): HasMany
+    public function socialMessages(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(SocialPost::class, 'organization_id');
+        return $this->hasMany(Message::class, 'organization_id')
+            ->whereHas('channel', fn ($q) => $q->where('slug', Channel::SLUG_SOCIAL_MEDIA));
     }
 
     public function beepCalls(): HasMany

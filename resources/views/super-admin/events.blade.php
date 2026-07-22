@@ -4,28 +4,28 @@
 
 @section('content')
 <div class="mb-8">
-    <h1 class="text-2xl font-bold text-slate-900">All Events</h1>
-    <p class="mt-1 text-slate-600">Events across the platform</p>
+    <h1 class="admin-page-title">All Events</h1>
+    <p class="admin-page-subtitle">Events across the platform</p>
 </div>
 
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+<div class="admin-table-wrap">
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200">
-            <thead class="bg-slate-50">
+        <table class="admin-table">
+            <thead>
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Event</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Organization</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Attendees</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink/50">Event</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink/50">Organization</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink/50">Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink/50">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink/50">Attendees</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-200">
+            <tbody>
                 @forelse($events as $event)
-                <tr class="hover:bg-slate-50">
-                    <td class="px-6 py-4 font-medium text-slate-900">{{ $event->name }}</td>
-                    <td class="px-6 py-4 text-sm text-slate-600">{{ $event->organization?->name ?? '—' }}</td>
-                    <td class="px-6 py-4 text-sm text-slate-600">{{ $event->date?->format('M j, Y') }}</td>
+                <tr>
+                    <td class="px-6 py-4 font-medium text-ink">{{ $event->name }}</td>
+                    <td class="px-6 py-4 text-sm text-ink/65">{{ $event->organization?->name ?? '—' }}</td>
+                    <td class="px-6 py-4 text-sm text-ink/65">{{ $event->date?->format('M j, Y') }}</td>
                     <td class="px-6 py-4">
                         <span class="px-2 py-0.5 rounded text-xs font-medium
                             {{ $event->status === 'scheduled' ? 'bg-blue-100 text-blue-800' : '' }}
@@ -34,16 +34,16 @@
                             {{ $event->status === 'cancelled' ? 'bg-red-100 text-red-800' : '' }}
                         ">{{ ucfirst($event->status) }}</span>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-600">{{ $event->attendees_count }}</td>
+                    <td class="px-6 py-4 text-sm text-ink/65">{{ $event->attendees_count }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">No events</td></tr>
+                <tr><td colspan="5" class="px-6 py-12 text-center text-ink/50">No events</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
     @if($events->hasPages())
-    <div class="px-6 py-4 border-t border-slate-200">{{ $events->links() }}</div>
+    <div class="px-6 py-4 border-t border-dawn-2/80">{{ $events->links() }}</div>
     @endif
 </div>
 @endsection
